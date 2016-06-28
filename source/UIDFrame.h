@@ -27,31 +27,13 @@
 class UIDFrame
 {
 public:
+    static const uint8_t UID_LENGTH = 16;
+
     /**
      * Construct a new instance of this class.
      */
     UIDFrame(void);
-
-    /**
-     * Construct a new instance of this class.
-     *
-     * @param[in] uidNamespaceIDIn
-     *              The Eddystone-UID namespace ID.
-     * @param[in] uidInstanceIDIn
-     *              The Eddystone-UID instance ID.
-     */
-    UIDFrame(const UIDNamespaceID_t uidNamespaceIDIn, const UIDInstanceID_t  uidInstanceIDIn);
-
-    /**
-     * Set the instance and namespace ID.
-     *
-     * @param[in] uidNamespaceIDIn
-     *              The new Eddystone-UID namespace ID.
-     * @param[in] uidInstanceIDIn
-     *              The new Eddystone-UID instance ID.
-     */
-    void setUIDData(const UIDNamespaceID_t &uidNamespaceIDIn, const UIDInstanceID_t &uidInstanceIDIn);
-
+    
     /**
      * Construct the raw bytes of the Eddystone-UID frame that will be directly
      * used in the advertising packets.
@@ -59,50 +41,104 @@ public:
      * @param[in] rawFrame
      *              Pointer to the location where the raw frame will be stored.
      * @param[in] advPowerLevel
-     *              Power level value included withing the raw frame.
+     *              Power level value included in the raw frame.
+     * @param[in] uidData
+     *              The actual 16-byte UID data in the raw frame.
      */
-    void constructUIDFrame(uint8_t *rawFrame, int8_t advPowerLevel);
-
+    void setData(uint8_t* rawFrame, int8_t advTxPower, const uint8_t* uidData);
+    
     /**
-     * Get the size of the Eddystone-UID frame constructed with the
-     * current state of the UIDFrame object.
+     * Get the UID frame data from the Eddystone-UID frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return A pointer to the bytes of the Eddystone-UID frame data.
+     */
+    uint8_t* getData(uint8_t* rawFrame);
+    
+    /**
+     * Get the length of the UID frame data from the Eddystone-UID frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
      *
      * @return The size in bytes of the Eddystone-UID frame.
      */
-    size_t getRawFrameSize(void) const;
+    uint8_t  getDataLength(uint8_t* rawFrame);
+    
+    /**
+     * Get the UID Adv data from the Eddystone-UID frame.
+     * This is the full service data included in the BLE service data params
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return A pointer to the bytes of the Eddystone-UID Adv frame data.
+     */
+    uint8_t* getAdvFrame(uint8_t* rawFrame);
+    
+    /**
+     * Get the length of the UID Adv data from the Eddystone-UID frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return The size in bytes of the Eddystone-UID Adv frame data.
+     */
+    uint8_t getAdvFrameLength(uint8_t* rawFrame);
 
     /**
-     * Get the Eddystone-UID namespace ID.
+     * Get just the UID data from the Eddystone-UID frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
      *
-     * @return A pointer to the namespace ID.
+     * @return A pointer to the bytes of the UID in the Eddystone-UID frame.
      */
-    uint8_t* getUIDNamespaceID(void);
-
+    uint8_t* getUid(uint8_t* rawFrame);
+    
     /**
-     * Get the Eddystone-UID instance ID.
+     * Get the length of just the UID data from the Eddystone-UID frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
      *
-     * @return A pointer to the instance ID.
+     * @return The size in bytes of the UID in the Eddystone-UID frame.
      */
-    uint8_t* getUIDInstanceID(void);
-
-private:
+    uint8_t getUidLength(uint8_t* rawFrame);
+    
+    /**
+     * Set the Adv TX Power in the frame. This is necessary because the adv
+     * Tx Power might be updated independent of the data bytes
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     * @param[in] advPowerLevel
+     *              Power level value included in the raw frame.
+     *
+     */
+    void setAdvTxPower(uint8_t* rawFrame, int8_t advTxPower);
+    
     /**
      *  The byte ID of an Eddystone-UID frame.
      */
     static const uint8_t FRAME_TYPE_UID = 0x00;
+
+private:
+
+    /**
+     * The size (in bytes) of an Eddystone-UID frame.
+     * This is the some of the Eddystone UUID(2 bytes), FrameType, AdvTxPower,
+     * UID Name Length, and UID Instance Length
+     */
+    static const uint8_t FRAME_SIZE_UID = 20;
     /**
      * The size (in bytes) of an Eddystone-UID frame.
      */
-    static const uint8_t FRAME_SIZE_UID = 20;
-
-    /**
-     * The Eddystone-UID namespace ID.
-     */
-    UIDNamespaceID_t     uidNamespaceID;
-    /**
-     * The Eddystone-UID instance ID.
-     */
-    UIDInstanceID_t      uidInstanceID;
+    static const uint8_t UID_NAMESPACEID_LENGTH = 10;
+    static const uint8_t UID_INSTANCEID_LENGTH = 6;
+ 
 };
 
 #endif  /* __UIDFRAME_H__ */

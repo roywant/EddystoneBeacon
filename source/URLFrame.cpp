@@ -16,61 +16,65 @@
 
 #include "URLFrame.h"
 
+/* CONSTRUCTOR */ 
 URLFrame::URLFrame(void)
 {
-    urlDataLength = 0;
-    memset(urlData, 0, sizeof(UrlData_t));
+}
+    
+void URLFrame::setUnencodedUrlData(uint8_t* rawFrame, int8_t advTxPower, const char *rawUrl)
+{    
+    uint8_t encodedUrl[ENCODED_BUF_SIZE];
+    int encodedUrlLen = encodeURL(encodedUrl, rawUrl);
+    encodedUrlLen = (encodedUrlLen > MAX_URL_DATA) ? MAX_URL_DATA : encodedUrlLen;
+    setData(rawFrame, advTxPower, reinterpret_cast<const uint8_t*>(encodedUrl), encodedUrlLen);
 }
 
-URLFrame::URLFrame(const char *urlDataIn)
+void URLFrame::setData(uint8_t* rawFrame, int8_t advTxPower, const uint8_t* encodedUrlData, uint8_t encodedUrlLen)
 {
-    encodeURL(urlDataIn);
+    uint8_t index = 0;
+    rawFrame[index++] = encodedUrlLen + 4;              // INDEX=0 = Frame Length = encodedURL size + 4 bytes of overhead below
+    rawFrame[index++] = EDDYSTONE_UUID[0];              // FRAME 16-bit Eddystone UUID Low Byte
+    rawFrame[index++] = EDDYSTONE_UUID[1];              // FRAME 16-bit Eddystone UUID High Byte
+    rawFrame[index++] = FRAME_TYPE_URL;                 // URL Frame Type
+    rawFrame[index++] = advTxPower;                     // Power @ 0meter 
+    
+    memcpy(rawFrame + index, encodedUrlData, encodedUrlLen); 
 }
 
-URLFrame::URLFrame(UrlData_t urlDataIn, uint8_t urlDataLengthIn)
-{
-    urlDataLength = (urlDataLengthIn > URL_DATA_MAX) ? URL_DATA_MAX : urlDataLengthIn;
-    memcpy(urlData, urlDataIn, urlDataLength);
+uint8_t*  URLFrame::getData(uint8_t* rawFrame) {
+    return &(rawFrame[3]);
 }
 
-void URLFrame::constructURLFrame(uint8_t* rawFrame, int8_t advPowerLevel)
-{
-    size_t index = 0;
-    rawFrame[index++] = EDDYSTONE_UUID[0];            // 16-bit Eddystone UUID
-    rawFrame[index++] = EDDYSTONE_UUID[1];
-    rawFrame[index++] = FRAME_TYPE_URL;               // 1B  Type
-    rawFrame[index++] = advPowerLevel;                // 1B  Power @ 0meter
-    memcpy(rawFrame + index, urlData, urlDataLength); // Encoded URL
+
+uint8_t  URLFrame::getDataLength(uint8_t* rawFrame) {
+    return rawFrame[0] - 2;
 }
 
-size_t URLFrame::getRawFrameSize(void) const
+uint8_t* URLFrame::getAdvFrame(uint8_t* rawFrame) 
 {
-    return urlDataLength + FRAME_MIN_SIZE_URL + EDDYSTONE_UUID_SIZE;
+    return &(rawFrame[1]);
 }
 
-uint8_t* URLFrame::getEncodedURLData(void)
+uint8_t URLFrame::getAdvFrameLength(uint8_t* rawFrame) 
 {
-    return urlData;
+    return rawFrame[0];
 }
 
-uint8_t URLFrame::getEncodedURLDataLength(void) const
+uint8_t* URLFrame::getEncodedUrl(uint8_t* rawFrame)
 {
-    return urlDataLength;
+    return &(rawFrame[6]);
 }
 
-void URLFrame::setURLData(const char *urlDataIn)
+uint8_t URLFrame::getEncodedUrlLength(uint8_t* rawFrame) 
 {
-    encodeURL(urlDataIn);
+    return rawFrame[0] - 4;
 }
 
-void URLFrame::setEncodedURLData(const uint8_t* urlEncodedDataIn, const uint8_t urlEncodedDataLengthIn)
-{
-    urlDataLength = urlEncodedDataLengthIn;
-    memcpy(urlData, urlEncodedDataIn, urlEncodedDataLengthIn);
-}
 
-void URLFrame::encodeURL(const char *urlDataIn)
+uint8_t URLFrame::encodeURL(uint8_t* encodedUrl, const char *rawUrl)
 {
+    uint8_t urlDataLength = 0;
+    
     const char  *prefixes[] = {
         "http://www.",
         "https://www.",
@@ -96,11 +100,10 @@ void URLFrame::encodeURL(const char *urlDataIn)
     };
     const size_t NUM_SUFFIXES = sizeof(suffixes) / sizeof(char *);
 
-    urlDataLength = 0;
-    memset(urlData, 0, sizeof(UrlData_t));
+    memset(encodedUrl, 0, ENCODED_BUF_SIZE);
 
-    if ((urlDataIn == NULL) || (strlen(urlDataIn) == 0)) {
-        return;
+    if ((rawUrl == NULL) || (strlen(rawUrl) == 0)) {
+        return urlDataLength;
     }
 
     /*
@@ -108,9 +111,9 @@ void URLFrame::encodeURL(const char *urlDataIn)
      */
     for (size_t i = 0; i < NUM_PREFIXES; i++) {
         size_t prefixLen = strlen(prefixes[i]);
-        if (strncmp(urlDataIn, prefixes[i], prefixLen) == 0) {
-            urlData[urlDataLength++]  = i;
-            urlDataIn                      += prefixLen;
+        if (strncmp(rawUrl, prefixes[i], prefixLen) == 0) {
+            encodedUrl[urlDataLength++]  = i;
+            rawUrl                      += prefixLen;
             break;
         }
     }
@@ -118,21 +121,27 @@ void URLFrame::encodeURL(const char *urlDataIn)
     /*
      * handle suffixes
      */
-    while (*urlDataIn && (urlDataLength < URL_DATA_MAX)) {
+    while (*rawUrl && (urlDataLength <= MAX_URL_DATA)) {
         /* check for suffix match */
         size_t i;
         for (i = 0; i < NUM_SUFFIXES; i++) {
             size_t suffixLen = strlen(suffixes[i]);
-            if (strncmp(urlDataIn, suffixes[i], suffixLen) == 0) {
-                urlData[urlDataLength++]  = i;
-                urlDataIn                      += suffixLen;
+            if (strncmp(rawUrl, suffixes[i], suffixLen) == 0) {
+                encodedUrl[urlDataLength++]  = i;
+                rawUrl                      += suffixLen;
                 break; /* from the for loop for checking against suffixes */
             }
         }
         /* This is the default case where we've got an ordinary character which doesn't match a suffix. */
         if (i == NUM_SUFFIXES) {
-            urlData[urlDataLength++] = *urlDataIn;
-            ++urlDataIn;
+            encodedUrl[urlDataLength++] = *rawUrl;
+            ++rawUrl;
         }
     }
+    return urlDataLength;
+}
+
+void URLFrame::setAdvTxPower(uint8_t* rawFrame, int8_t advTxPower)
+{
+    rawFrame[4] = advTxPower;
 }

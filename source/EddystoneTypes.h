@@ -24,16 +24,38 @@
     #define YOTTA_CFG_EDDYSTONE_DEFAULT_DEVICE_NAME "EDDYSTONE CONFIG"
 #endif
 
-#ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_URL
-    #define YOTTA_CFG_EDDYSTONE_DEFAULT_URL "https://www.mbed.com/"
+#ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_URLS
+    #define YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_URLS {"https://www.google.com/","http://www.mbed.com/","http://www.cnn.com/"}
 #endif
+
+#ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_MAX_ADV_SLOTS
+    #define YOTTA_CFG_EDDYSTONE_DEFAULT_MAX_ADV_SLOTS 3
+#endif
+
+const uint8_t MAX_ADV_SLOTS = YOTTA_CFG_EDDYSTONE_DEFAULT_MAX_ADV_SLOTS;
+/**
+ * Slot and Power and Interval Constants
+ */
+const uint8_t DEFAULT_SLOT = 0;
+
+/**
+ * Number of radio power modes supported
+ */
+const uint8_t NUM_POWER_MODES = 4;
+
+/** 
+ * Lock constants
+ */
+const uint8_t LOCKED = 0;
+const uint8_t UNLOCKED = 1;
+const uint8_t UNLOCKED_AUTO_RELOCK_DISABLED = 2;
 
 /**
  * Macro to expand a 16-bit Eddystone UUID to 128-bit UUID.
  */
-#define UUID_URL_BEACON(FIRST, SECOND) {                         \
-        0xee, 0x0c, FIRST, SECOND, 0x87, 0x86, 0x40, 0xba,       \
-        0xab, 0x96, 0x99, 0xb9, 0x1a, 0xc9, 0x81, 0xd8,          \
+#define UUID_ES_BEACON(FIRST, SECOND) {                         \
+        0xa3, 0x0c8, FIRST, SECOND, 0x8e, 0xd3, 0x4b, 0xdf,      \
+        0x8a, 0x39, 0xa0, 0x1b, 0xeb, 0xed, 0xe2, 0x95,          \
 }
 
 /**
@@ -41,55 +63,86 @@
  */
 const uint8_t EDDYSTONE_UUID[] = {0xAA, 0xFE};
 
+/** BEGINING OF CHARACTERISTICS */
+
 /**
- * 128-bit UUID for Eddystone-URL Configuration Service.
+ * 128-bit UUID for Eddystone-GATT Configuration Service.
  */
-const uint8_t UUID_URL_BEACON_SERVICE[]    = UUID_URL_BEACON(0x20, 0x80);
+const uint8_t UUID_ES_BEACON_SERVICE[]         = UUID_ES_BEACON(0x75, 0x00);
+
+/**
+ * 128-bit UUID for Eddystone-URL Configuration Service Capabilities
+ * characteristic.
+ */
+const uint8_t UUID_CAPABILITIES_CHAR[]          = UUID_ES_BEACON(0x75, 0x01);
+
+/**
+ * 128-bit UUID for Eddystone-URL Configuration Service Active Slot
+ * characteristic.
+ */
+const uint8_t UUID_ACTIVE_SLOT_CHAR[]           = UUID_ES_BEACON(0x75, 0x02);
+
+/**
+ * 128-bit UUID for Eddystone-URL Configuration Service Advertising Interval
+ * characteristic.
+ */
+const uint8_t UUID_ADV_INTERVAL_CHAR[]          = UUID_ES_BEACON(0x75, 0x03);
+
+/**
+ * 128-bit UUID for Eddystone-URL Configuration Service Radio Tx Power
+ * characteristic.
+ */
+const uint8_t UUID_RADIO_TX_POWER_CHAR[]        = UUID_ES_BEACON(0x75, 0x04);
+
+/**
+ * 128-bit UUID for Eddystone-URL Configuration Service Adv Tx Power
+ * characteristic.
+ */
+const uint8_t UUID_ADV_TX_POWER_CHAR[]          = UUID_ES_BEACON(0x75, 0x05);
+
 /**
  * 128-bit UUID for Eddystone-URL Configuration Service Lock State
  * characteristic.
  */
-const uint8_t UUID_LOCK_STATE_CHAR[]       = UUID_URL_BEACON(0x20, 0x81);
-/**
- * 128-bit UUID for Eddystone-URL Configuration Service Lock
- * characteristic.
- */
-const uint8_t UUID_LOCK_CHAR[]             = UUID_URL_BEACON(0x20, 0x82);
+const uint8_t UUID_LOCK_STATE_CHAR[]            = UUID_ES_BEACON(0x75, 0x06);
+
 /**
  * 128-bit UUID for Eddystone-URL Configuration Service Unlock
  * characteristic.
  */
-const uint8_t UUID_UNLOCK_CHAR[]           = UUID_URL_BEACON(0x20, 0x83);
+const uint8_t UUID_UNLOCK_CHAR[]                = UUID_ES_BEACON(0x75, 0x07);
+
 /**
- * 128-bit UUID for Eddystone-URL Configuration Service URI Data
+ * 128-bit UUID for Eddystone-URL Configuration Service Public ECDH Key
  * characteristic.
  */
-const uint8_t UUID_URL_DATA_CHAR[]         = UUID_URL_BEACON(0x20, 0x84);
+const uint8_t UUID_PUBLIC_ECDH_KEY_CHAR[]       = UUID_ES_BEACON(0x75, 0x08);
+
 /**
- * 128-bit UUID for Eddystone-URL Configuration Service Flags
+ * 128-bit UUID for Eddystone-URL Configuration Service EID Identity Key
  * characteristic.
  */
-const uint8_t UUID_FLAGS_CHAR[]            = UUID_URL_BEACON(0x20, 0x85);
+const uint8_t UUID_EID_IDENTITY_KEY_CHAR[]      = UUID_ES_BEACON(0x75, 0x09);
+
 /**
- * 128-bit UUID for Eddystone-URL Configuration Service Advertised TX Power
- * Levels characteristic.
- */
-const uint8_t UUID_ADV_POWER_LEVELS_CHAR[] = UUID_URL_BEACON(0x20, 0x86);
-/**
- * 128-bit UUID for Eddystone-URL Configuration Service TX Power Mode
+ * 128-bit UUID for Eddystone-URL Configuration Service Adv Slot Data
  * characteristic.
  */
-const uint8_t UUID_TX_POWER_MODE_CHAR[]    = UUID_URL_BEACON(0x20, 0x87);
-/**
- * 128-bit UUID for Eddystone-URL Configuration Service Beacon Period
- * characteristic.
- */
-const uint8_t UUID_BEACON_PERIOD_CHAR[]    = UUID_URL_BEACON(0x20, 0x88);
+const uint8_t UUID_ADV_SLOT_DATA_CHAR[]         = UUID_ES_BEACON(0x75, 0x0a);
+
 /**
  * 128-bit UUID for Eddystone-URL Configuration Service Reset
  * characteristic.
  */
-const uint8_t UUID_RESET_CHAR[]            = UUID_URL_BEACON(0x20, 0x89);
+const uint8_t UUID_FACTORY_RESET_CHAR[]         = UUID_ES_BEACON(0x75, 0x0b);
+
+/**
+ * 128-bit UUID for Eddystone-URL Configuration Service Remain Connectable
+ * characteristic.
+ */
+const uint8_t UUID_REMAIN_CONNECTABLE_CHAR[]    = UUID_ES_BEACON(0x75, 0x0c);
+
+/** END OF CHARACTERISTICS  */
 
 /**
  * Default name for the BLE Device Name characteristic.
@@ -97,43 +150,42 @@ const uint8_t UUID_RESET_CHAR[]            = UUID_URL_BEACON(0x20, 0x89);
 const char DEFAULT_DEVICE_NAME[] = YOTTA_CFG_EDDYSTONE_DEFAULT_DEVICE_NAME;
 
 /**
- * Default URL used  by EddystoneService.
+ * Default Lock State used  by EddystoneService.
  */
-const char DEFAULT_URL[] = YOTTA_CFG_EDDYSTONE_DEFAULT_URL;
+const uint8_t DEFAULT_LOCK_STATE_DATA[] = {UNLOCKED};
 
 /**
- * Enumeration that defines the Eddystone power levels for the Eddystone-URL
- * Configuration Service TX Power Mode characteristic. Refer to
- * https://github.com/google/eddystone/blob/master/eddystone-url/docs/config-service-spec.md#37-tx-power-mode.
+ * ES GATT Capability Constants (6 values)
  */
-enum PowerModes {
-    /**
-     * Lowest transmit power mode.
-     */
-    TX_POWER_MODE_LOWEST,
-    /**
-     * Low transmit power mode.
-     */
-    TX_POWER_MODE_LOW,
-    /**
-     * Medium transmit power mode.
-     */
-    TX_POWER_MODE_MEDIUM,
-    /**
-     * Highest transmit power mode.
-     */
-    TX_POWER_MODE_HIGH,
-    /**
-     * Total number of power modes.
-     */
-    NUM_POWER_MODES
-};
+const uint8_t CAP_HDR_LEN = 6;  // The six constants below
+
+const uint8_t ES_GATT_VERSION = 0;
+
+const uint8_t MAX_EIDS = MAX_ADV_SLOTS;
+
+const uint8_t CAPABILITIES = 0x03; // Per slot variable interval and variable Power
+
+const uint8_t SUPPORTED_FRAMES_H = 0x00;
+
+const uint8_t SUPPORTED_FRAMES_L = 0x07;
+
+/**
+ * ES GATT Capability Constant Array storing the capability constants
+ */
+const uint8_t CAPABILITIES_DEFAULT[] = {ES_GATT_VERSION, MAX_ADV_SLOTS, MAX_EIDS, CAPABILITIES, \
+                                        SUPPORTED_FRAMES_H, SUPPORTED_FRAMES_L};
+
+/**
+ * A type defining the size of the READ ONLY capability characteristic
+ */
+typedef uint8_t Capability_t[CAP_HDR_LEN + NUM_POWER_MODES];
 
 /**
  * Type for the 128-bit for Eddystone-URL Configuration Service Lock and Unlock
  * characteristic value.
  */
 typedef uint8_t Lock_t[16];
+
 /**
  * Type for the 128-bit for Eddystone-URL Configuration Service Advertised TX
  * Power Levels characteristic value.
@@ -141,26 +193,81 @@ typedef uint8_t Lock_t[16];
 typedef int8_t PowerLevels_t[NUM_POWER_MODES];
 
 /**
- * Maximum length of an encoded URL for Eddystone.
+ * Type representing the power level set for each slot
  */
-const uint16_t URL_DATA_MAX = 18;
+typedef int8_t SlotTxPowerLevels_t[MAX_ADV_SLOTS];
+
 /**
- * Type for an encoded URL for Eddystone.
+ * Type representing the adv interval set for each slot
  */
-typedef uint8_t UrlData_t[URL_DATA_MAX];
+typedef uint16_t SlotAdvIntervals_t[MAX_ADV_SLOTS];
+ 
+/**
+ * Type representing the buffer used to represent the LockState and potentially
+ * an updated key
+ */
+typedef uint8_t LockState_t[17];
+
+/**
+ * Type representing the EID private ECDH Key
+ */
+typedef uint8_t PrivateEcdhKey_t[32]; 
+
+/**
+ * Type representing the EID public ECDH Key
+ */
+typedef uint8_t PublicEcdhKey_t[32]; 
+
+/**
+ * Type representing the EID Identity Key
+ */
+typedef uint8_t EidIdentityKey_t[16]; 
+
+/**
+ * Type representing the storage for a single slot
+ */
+typedef uint8_t Slot_t[32];
+
+/**
+ * Type representing the storage for all slots given MAX_ADV_SLOTS
+ */
+typedef uint8_t SlotStorage_t[MAX_ADV_SLOTS * sizeof(Slot_t)];
+
+/**
+ * Type representing the current frame types if each slot
+ */
+typedef uint8_t SlotFrameTypes_t[MAX_ADV_SLOTS];
+
+/**
+ * Type representing the EID rotation period exp for each slot
+ */
+typedef uint8_t SlotEidRotationPeriodExps_t[MAX_ADV_SLOTS];
+
+/**
+ * Type representing the EID next rotation time for each slot
+ */
+typedef uint32_t SlotEidNextRotationTimes_t[MAX_ADV_SLOTS];
+
+/**
+ * Type representing the EID identity keys for each slot
+ */
+typedef EidIdentityKey_t SlotEidIdentityKeys_t[MAX_ADV_SLOTS];
 
 /**
  * Size in bytes of UID namespace ID.
  */
 const size_t UID_NAMESPACEID_SIZE = 10;
+
 /**
  * Type for the UID namespace ID.
  */
 typedef uint8_t UIDNamespaceID_t[UID_NAMESPACEID_SIZE];
+
 /**
  * Size in bytes of UID instance ID.
  */
 const size_t UID_INSTANCEID_SIZE = 6;
+
 /**
  * Type for the UID instance ID.
  */
@@ -173,8 +280,19 @@ typedef uint8_t UIDInstanceID_t[UID_INSTANCEID_SIZE];
 typedef uint16_t (*TlmUpdateCallback_t) (uint16_t);
 
 /**
- * Size of Eddystone UUID. Needed to construct all frames raw bytes.
+ * Size of Eddystone UID. Needed to construct all frames raw bytes.
  */
 const uint16_t EDDYSTONE_UUID_SIZE = sizeof(EDDYSTONE_UUID);
+
+/**
+ * Offset for playload in a rawFrame UID
+ */
+const uint8_t UID_PAYLOAD_OFFSET = 5;
+
+/**
+ * Playload size for a rawFrame UID
+ */
+const uint8_t UID_PAYLOAD_SIZE = 10;
+
 
 #endif /* __EDDYSTONETYPES_H__ */

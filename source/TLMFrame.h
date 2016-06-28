@@ -59,7 +59,7 @@ public:
      * @param[in] rawFrame
      *              Pointer to the location where the raw frame will be stored.
      */
-    void constructTLMFrame(uint8_t *rawFrame);
+    void setData(uint8_t *rawFrame);
 
     /**
      * Get the size of the Eddystone-TLM frame constructed with the
@@ -68,6 +68,48 @@ public:
      * @return The size in bytes of the Eddystone-TLM frame.
      */
     size_t getRawFrameSize(void) const;
+    
+    
+    /**
+     * Get the TLM frame data from the Eddystone-TLM frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return A pointer to the bytes of the Eddystone-TLM frame data.
+     */
+    uint8_t* getData(uint8_t* rawFrame);
+    
+    /**
+     * Get the length of the TLM frame data from the Eddystone-TLM frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return The size in bytes of the Eddystone-TLM frame.
+     */
+    uint8_t  getDataLength(uint8_t* rawFrame);
+    
+    /**
+     * Get the TLM Adv data from the Eddystone-TLMframe.
+     * This is the full service data included in the BLE service data params
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return A pointer to the bytes of the Eddystone-TLM Adv frame data.
+     */
+    uint8_t* getAdvFrame(uint8_t* rawFrame);
+    
+    /**
+     * Get the length of the TLM Adv data from the Eddystone-TLMframe.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return The size in bytes of the Eddystone-TLM Adv frame data.
+     */
+    uint8_t getAdvFrameLength(uint8_t* rawFrame);
 
     /**
      * Update the time since boot.
@@ -118,12 +160,19 @@ public:
      * @return The TLM Version number.
      */
     uint8_t getTLMVersion(void) const;
-
-private:
+    
     /**
      * The byte ID of an Eddystone-TLM frame.
      */
     static const uint8_t FRAME_TYPE_TLM = 0x20;
+    
+    /**
+    * The verison number of the Telemetry packets being used
+    */
+    static const uint8_t DEFAULT_TLM_VERSION = 0;
+
+private:
+
     /**
      * The size of an Eddystone-TLM frame.
      */

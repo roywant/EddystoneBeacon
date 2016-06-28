@@ -42,9 +42,10 @@ void TLMFrame::setTLMData(uint8_t tlmVersionIn)
     tlmTimeSinceBoot     = 0;
 }
 
-void TLMFrame::constructTLMFrame(uint8_t *rawFrame)
+void TLMFrame::setData(uint8_t *rawFrame)
 {
     size_t index = 0;
+    rawFrame[index++] = FRAME_SIZE_TLM + EDDYSTONE_UUID_SIZE; // Length of Frame
     rawFrame[index++] = EDDYSTONE_UUID[0];                    // 16-bit Eddystone UUID
     rawFrame[index++] = EDDYSTONE_UUID[1];
     rawFrame[index++] = FRAME_TYPE_TLM;                       // Eddystone frame type = Telemetry
@@ -66,6 +67,25 @@ void TLMFrame::constructTLMFrame(uint8_t *rawFrame)
 size_t TLMFrame::getRawFrameSize(void) const
 {
     return FRAME_SIZE_TLM + EDDYSTONE_UUID_SIZE;
+}
+
+uint8_t* TLMFrame::getData(uint8_t* rawFrame) 
+{
+    setData(rawFrame);
+    return &(rawFrame[3]);
+}
+
+uint8_t TLMFrame::getDataLength(uint8_t* rawFrame)
+{
+    return rawFrame[0] - 2;
+}
+
+uint8_t* TLMFrame::getAdvFrame(uint8_t* rawFrame){
+    return &(rawFrame[1]);
+}
+
+uint8_t TLMFrame::getAdvFrameLength(uint8_t* rawFrame){
+    return rawFrame[0];
 }
 
 void TLMFrame::updateTimeSinceBoot(uint32_t nowInMillis)

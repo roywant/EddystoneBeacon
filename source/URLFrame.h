@@ -31,76 +31,114 @@ public:
      * Construct a new instance of this class.
      */
     URLFrame(void);
-
+    
     /**
-     * Construct a new instance of this class.
-     *
-     * @param[in] urlDataIn
-     *              A null terminated string representing a URL.
-     */
-    URLFrame(const char *urlDataIn);
-
-    /**
-     * Construct a new instance of this class.
-     *
-     * @param[in] urlDataIn
-     *              An encoded URL.
-     * @param[in] urlDataLengthIn
-     *              The length (in bytes) of the encoded URL.
-     */
-    URLFrame(UrlData_t urlDataIn, uint8_t urlDataLengthIn);
-
-    /**
-     * Construct the raw bytes of the Eddystone-URL frame that will be directly
-     * used in the advertising packets.
+     * Construct the raw bytes of the Eddystone-URL frame from an unencoded URL
+     * (a null terminated string) that will be directly used in the advertising
+     * packets.
      *
      * @param[in] rawFrame
      *              Pointer to the location where the raw frame will be stored.
      * @param[in] advPowerLevel
-     *              Power level value included withing the raw frame.
+     *              Power level value included in the raw frame.
+     * @param[in] rawURL
+     *              A null terminated string containing the URL
      */
-    void constructURLFrame(uint8_t* rawFrame, int8_t advPowerLevel);
-
+    void setUnencodedUrlData(uint8_t* rawFrame, int8_t advTxPower, const char *rawUrl);
+    
     /**
-     * Get the size of the Eddystone-URL frame constructed with the
-     * current state of the URLFrame object.
+     * Construct the raw bytes of the Eddystone-URL frame from an encoded URL 
+     * plus length information
+     *
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     * @param[in] advPowerLevel
+     *              Power level value included in the raw frame.
+     * @param[in] encodedUrlData
+     *              A pointer to the encoded URL bytes.
+     * @param[in] encodedUrlLen
+     *              The length in bytes of the encoded URL
+     */
+    void setData(uint8_t* rawFrame, int8_t advPowerLevel, const uint8_t* encodedUrlData, uint8_t encodedUrlLen);
+    
+    /**
+     * Get the URL frame data from the Eddystone-URL frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return A pointer to the bytes of the Eddystone-URL frame data.
+     */
+    uint8_t* getData(uint8_t* rawFrame);
+    
+    /**
+     * Get the length of the URL frame data from the Eddystone-UID frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
      *
      * @return The size in bytes of the Eddystone-URL frame.
      */
-    size_t getRawFrameSize(void) const;
+    uint8_t getDataLength(uint8_t* rawFrame);
 
     /**
-     * Get a pointer to the encoded URL data.
+     * Get the URL Adv data from the Eddystone-URLframe.
+     * This is the full service data included in the BLE service data params
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
      *
-     * @return A pointer to the encoded URL data.
+     * @return A pointer to the bytes of the Eddystone-URLAdv frame data.
      */
-    uint8_t* getEncodedURLData(void);
+    uint8_t* getAdvFrame(uint8_t* rawFrame);
+    
+    /**
+     * Get the length of the URLAdv data from the Eddystone-URL frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return The size in bytes of the Eddystone-URL Adv frame data.
+     */
+    uint8_t getAdvFrameLength(uint8_t* rawFrame);
 
     /**
-     * Get the encoded URL data length.
+     * Get just the encoded URL data from the Eddystone-URL frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
      *
-     * @return The length (in bytes) of the encoded URL data frame.
+     * @return A pointer to the bytes of the encoded URL in the Eddystone-URL
+     * frame.
      */
-    uint8_t getEncodedURLDataLength(void) const;
+    uint8_t* getEncodedUrl(uint8_t* rawFrame);
+    
+    /**
+     * Get the length of just the encoded URL data from the Eddystone-URL frame.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     *
+     * @return The size in bytes of the encoded URL in the Eddystone-URL frame.
+     */
+    uint8_t getEncodedUrlLength(uint8_t* rawFrame);
+    
+    /**
+     * Set the Adv TX Power in the frame. This is necessary because the adv
+     * Tx Power might be updated independent of the data bytes
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
+     * @param[in] advPowerLevel
+     *              Power level value included in the raw frame.
+     *
+     */
+    void setAdvTxPower(uint8_t* rawFrame, int8_t advTxPower);
 
     /**
-     * Set a new URL.
-     *
-     * @param[in] urlDataIn
-     *              A null terminated string containing the new URL.
+     *  The byte ID of an Eddystone-URL frame.
      */
-    void setURLData(const char *urlDataIn);
-
-    /**
-     * Set an encoded URL.
-     *
-     * @param[in] urlEncodedDataIn
-     *              A pointer to the encoded URL data.
-     * @param[in] urlEncodedDataLengthIn
-     *              The lenght of the encoded URL data pointed to by @p
-     *              urlEncodedDataIn.
-     */
-    void setEncodedURLData(const uint8_t* urlEncodedDataIn, const uint8_t urlEncodedDataLengthIn);
+    static const uint8_t FRAME_TYPE_URL     = 0x10;
 
 private:
     /**
@@ -108,29 +146,28 @@ private:
      * URL Encoding required in Eddystone-URL frames. Refer to
      * https://github.com/google/eddystone/blob/master/eddystone-url/README.md#eddystone-url-http-url-encoding.
      *
-     * @param[in] urlDataIn
+     * @param[in] encodedUrlData
+     *              The encoded bytes of the URL
+     * @param[in] rawUrl
      *              The null terminated string containing a URL to encode.
+     * @return Length of the encodedData in bytes
      */
-    void encodeURL(const char *urlDataIn);
+    uint8_t encodeURL(uint8_t* encodedUrlData, const char* rawUrl);
 
-    /**
-     *  The byte ID of an Eddystone-URL frame.
-     */
-    static const uint8_t FRAME_TYPE_URL     = 0x10;
     /**
      * The minimum size (in bytes) of an Eddystone-URL frame.
      */
     static const uint8_t FRAME_MIN_SIZE_URL = 2;
-
+    
     /**
-     * The length of the encoded URL.
+     * The max size (in bytes) of an Eddystone-URL frame.
      */
-    uint8_t              urlDataLength;
+    static const uint8_t ENCODED_BUF_SIZE = 32;
+    
     /**
-     * The enconded URL data.
-     */
-    UrlData_t            urlData;
-
+    * Offset for playload in a rawFrame UID
+    */
+    uint8_t MAX_URL_DATA = 18;
 };
 
 #endif /* __URLFRAME_H__ */
