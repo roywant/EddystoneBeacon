@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "EventQueue/EventQueueClassic.h"
 #include "mbed-drivers/mbed.h"
 #include "ble/BLE.h"
 #include "EddystoneService.h"
@@ -22,11 +21,21 @@
 #include "PersistentStorageHelper/ConfigParamsPersistence.h"
 // #include "stdio.h"
 
+// Instantiation of the main event loop for this program
+
+#ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
+#include "EventQueue/EventQueueMinar.h"
+typedef eq::EventQueueMinar event_queue_t;
+
+#else      // otherwise use the event classic queue
+#include "EventQueue/EventQueueClassic.h"
 typedef eq::EventQueueClassic<
     /* event count */ 10
-> envent_queue_t;
+> event_queue_t;
 
-static envent_queue_t eventQueue;
+#endif
+
+static event_queue_t eventQueue;
 
 EddystoneService *eddyServicePtr;
 
@@ -64,8 +73,8 @@ static int buttonBusy;                                    // semaphore to make p
 
 static const int BLINKY_MSEC = 500;                       // How long to cycle config LED on/off
 static int beaconIsOn = 1;                                // Button handler boolean to switch on or off
-static envent_queue_t::event_handle_t handle = 0;         // For the config mode timeout
-static envent_queue_t::event_handle_t BlinkyHandle = 0;   // For the blinking LED when in config mode
+static event_queue_t::event_handle_t handle = 0;         // For the config mode timeout
+static event_queue_t::event_handle_t BlinkyHandle = 0;   // For the blinking LED when in config mode
 
 static void blinky(void)  { configLED = !configLED; }
 static void shutdownLED_on(void) { shutdownLED = !LED_OFF; }
@@ -232,15 +241,20 @@ void app_start(int, char *[])
 
     BLE &ble = BLE::Instance();
     ble.init(bleInitComplete);
-
-    // bypass minar and use the event queue instead.
-    // wait for event take care of sleeping.
-    // This has the advantage to run on any system: mbed os 2,
-    // mbed os 3 and future releases.
-    while (true) {
-        //printf("dispatch\r\n");
-        eventQueue.dispatch();
-        //mbed_enter_sleep(NULL);
-    //    ble.waitForEvent();
-    }
 }
+
+#if !defined(YOTTA_CFG_MBED_OS)
+
+int main() {
+
+    app_start(0, NULL);
+
+    while (true) {
+       eventQueue.dispatch();
+       ble.waitForEvent();
+    }
+
+    return 0;
+}
+
+#endif
