@@ -22,12 +22,13 @@
 
 const char * const EddystoneService::slotDefaultUrls[] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_URLS;
 
-/* 
+/*
  * CONSTRUCTOR #1 Used on 1st boot (after reflash)
  */
 EddystoneService::EddystoneService(BLE                 &bleIn,
                                    const PowerLevels_t &advTxPowerLevelsIn,
                                    const PowerLevels_t &radioTxPowerLevelsIn,
+                                   event_queue_t       &evQ,
                                    uint32_t            advConfigIntervalIn) :
     ble(bleIn),
     operationMode(EDDYSTONE_MODE_NONE),
@@ -38,7 +39,8 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     tlmBatteryVoltageCallback(NULL),
     tlmBeaconTemperatureCallback(NULL),
     radioManagerCallbackHandle(NULL),
-    deviceName(DEFAULT_DEVICE_NAME)
+    deviceName(DEFAULT_DEVICE_NAME),
+    eventQueue(evQ)
 {
 
     if (advConfigIntervalIn != 0) {
@@ -52,7 +54,7 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     }
     memcpy(radioTxPowerLevels, radioTxPowerLevelsIn, sizeof(PowerLevels_t));
     memcpy(advTxPowerLevels,   advTxPowerLevelsIn,   sizeof(PowerLevels_t));
-    
+
     doFactoryReset();
 
     /* TODO: Note that this timer is started from the time EddystoneService
@@ -64,12 +66,13 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     ble.gap().setDeviceName(reinterpret_cast<const uint8_t *>(deviceName));
 }
 
-/* 
- * Constuctor #2:  Used on 2nd+ boot: EddystoneService parameters derived from persistent storage 
+/*
+ * Constuctor #2:  Used on 2nd+ boot: EddystoneService parameters derived from persistent storage
  */
 EddystoneService::EddystoneService(BLE                 &bleIn,
                                    EddystoneParams_t   &paramsIn,
                                    const PowerLevels_t &radioTxPowerLevelsIn,
+                                   event_queue_t       &evQ,
                                    uint32_t            advConfigIntervalIn) :
     ble(bleIn),
     operationMode(EDDYSTONE_MODE_NONE),
@@ -80,12 +83,13 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     tlmBatteryVoltageCallback(NULL),
     tlmBeaconTemperatureCallback(NULL),
     radioManagerCallbackHandle(NULL),
-    deviceName(DEFAULT_DEVICE_NAME)
-{   
+    deviceName(DEFAULT_DEVICE_NAME),
+    eventQueue(evQ)
+{
     memcpy(capabilities, paramsIn.capabilities, sizeof(Capability_t));
     activeSlot          = paramsIn.activeSlot;
     memcpy(radioTxPowerLevels, radioTxPowerLevelsIn, sizeof(PowerLevels_t));
-    memcpy(slotRadioTxPowerLevels, paramsIn.slotRadioTxPowerLevels, sizeof(SlotTxPowerLevels_t));    
+    memcpy(slotRadioTxPowerLevels, paramsIn.slotRadioTxPowerLevels, sizeof(SlotTxPowerLevels_t));
     memcpy(advTxPowerLevels,   paramsIn.advTxPowerLevels,   sizeof(PowerLevels_t));
     memcpy(slotAdvTxPowerLevels, paramsIn.slotAdvTxPowerLevels, sizeof(SlotTxPowerLevels_t));
     memcpy(slotAdvIntervals,   paramsIn.slotAdvIntervals,   sizeof(SlotAdvIntervals_t));
@@ -94,12 +98,12 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     memcpy(unlockToken, paramsIn.unlockToken, sizeof(Lock_t));
     memcpy(challenge, paramsIn.challenge, sizeof(Lock_t));
     memset(slotCallbackHandles, 0, sizeof(SlotCallbackHandles_t));
-    memcpy(slotStorage, paramsIn.slotStorage, sizeof(SlotStorage_t)); 
+    memcpy(slotStorage, paramsIn.slotStorage, sizeof(SlotStorage_t));
     memcpy(slotFrameTypes, paramsIn.slotFrameTypes, sizeof(SlotFrameTypes_t));
     memcpy(slotEidRotationPeriodExps, paramsIn.slotEidRotationPeriodExps, sizeof(SlotEidRotationPeriodExps_t));
     memcpy(slotEidIdentityKeys, paramsIn.slotEidIdentityKeys, sizeof(SlotEidIdentityKeys_t));
     remainConnectable   = paramsIn.remainConnectable;
-    
+
     if (advConfigIntervalIn != 0) {
         if (advConfigIntervalIn < ble.gap().getMinAdvertisingInterval()) {
             advConfigInterval = ble.gap().getMinAdvertisingInterval();
@@ -109,10 +113,10 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
             advConfigInterval = advConfigIntervalIn;
         }
     }
-    
+
     // Generate fresh private and public ECDH keys for EID
     eidFrame.genBeaconKeys(privateEcdhKey, publicEcdhKey);
-    
+
     // Recompute EID Slot Data
     for (int slot = 0; slot < MAX_ADV_SLOTS; slot++) {
         uint8_t* frame = slotToFrame(slot);
@@ -120,11 +124,11 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
             case EDDYSTONE_FRAME_EID:
                eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
                eidFrame.setAdvTxPower(frame, slotAdvTxPowerLevels[slot]);
-               break;       
+               break;
             default: ;
         }
     }
-    
+
 
     /* TODO: Note that this timer is started from the time EddystoneService
      * is initialised and NOT from when the device is booted.
@@ -140,9 +144,9 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
  * Factory reset all parmeters: used at initial boot, and activated from Char 11
  */
 void EddystoneService::doFactoryReset(void)
-{   
-    memset(slotCallbackHandles, 0, sizeof(SlotCallbackHandles_t)); 
-    radioManagerCallbackHandle = NULL; 
+{
+    memset(slotCallbackHandles, 0, sizeof(SlotCallbackHandles_t));
+    radioManagerCallbackHandle = NULL;
     memcpy(capabilities, CAPABILITIES_DEFAULT, CAP_HDR_LEN);
     // Line above leaves powerlevels blank; Line below fills them in
     memcpy(capabilities + CAP_HDR_LEN, radioTxPowerLevels, sizeof(PowerLevels_t));
@@ -156,23 +160,23 @@ void EddystoneService::doFactoryReset(void)
     memcpy(slotAdvIntervals, buf1, sizeof(SlotAdvIntervals_t));
     // Radio and Adv TX Power
     int8_t buf2[] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_TX_POWERS;
-    for (int i = 0; i< MAX_ADV_SLOTS; i++) { 
+    for (int i = 0; i< MAX_ADV_SLOTS; i++) {
       slotRadioTxPowerLevels[i] = buf2[i];
       slotAdvTxPowerLevels[i] = advTxPowerLevels[radioTxPowerToIndex(buf2[i])];
     }
     // Lock
     lockState      = UNLOCKED;
     uint8_t defKeyBuf[] = YOTTA_CFG_EDDYSTONE_DEFAULT_UNLOCK_KEY;
-    memcpy(unlockKey,        defKeyBuf,     sizeof(Lock_t)); 
+    memcpy(unlockKey,        defKeyBuf,     sizeof(Lock_t));
     memset(unlockToken,      0,     sizeof(Lock_t));
-    memset(challenge,        0,     sizeof(Lock_t)); // NOTE: challenge is randomized on first unlockChar read; 
-    
+    memset(challenge,        0,     sizeof(Lock_t)); // NOTE: challenge is randomized on first unlockChar read;
+
     // EID
     eidFrame.genBeaconKeys(privateEcdhKey, publicEcdhKey);
     //// TODO(AZ): recommend to randomly generate the default EIKs, instead of letting them be fixed
     // generateRandom(reinterpret_cast<uint8_t*>(slotEidIdentityKeys), sizeof(SlotEidIdentityKeys_t));
     memcpy(slotEidIdentityKeys, slotDefaultEidIdentityKeys, sizeof(SlotEidIdentityKeys_t));
-    
+
     uint8_t buf4[] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS;
     memcpy(slotEidRotationPeriodExps, buf4, sizeof(SlotEidRotationPeriodExps_t));
     memset(slotEidNextRotationTimes, 0, sizeof(SlotEidNextRotationTimes_t));
@@ -183,23 +187,23 @@ void EddystoneService::doFactoryReset(void)
     for (int slot = 0; slot < MAX_ADV_SLOTS; slot++) {
         uint8_t* frame = slotToFrame(slot);
         switch (slotFrameTypes[slot]) {
-            case EDDYSTONE_FRAME_UID: 
+            case EDDYSTONE_FRAME_UID:
                uidFrame.setData(frame, slotAdvTxPowerLevels[slot], reinterpret_cast<const uint8_t*>(slotDefaultUids[slot]));
                break;
             case EDDYSTONE_FRAME_URL:
                urlFrame.setUnencodedUrlData(frame, slotAdvTxPowerLevels[slot], slotDefaultUrls[slot]);
                break;
-            case EDDYSTONE_FRAME_TLM: 
+            case EDDYSTONE_FRAME_TLM:
                tlmFrame.setTLMData(TLMFrame::DEFAULT_TLM_VERSION);
                tlmFrame.setData(frame);
                break;
             case EDDYSTONE_FRAME_EID:
-               eidFrame.setData(frame, slotAdvTxPowerLevels[slot], reinterpret_cast<const uint8_t*>(allSlotsDefaultEid));            
+               eidFrame.setData(frame, slotAdvTxPowerLevels[slot], reinterpret_cast<const uint8_t*>(allSlotsDefaultEid));
                eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
-               break;       
+               break;
         }
     }
-    remainConnectable = DEFAULT_REMAIN_CONNECTABLE;  
+    remainConnectable = DEFAULT_REMAIN_CONNECTABLE;
     factoryReset = false;
 }
 
@@ -216,7 +220,7 @@ void EddystoneService::onTLMBeaconTemperatureUpdate(TlmUpdateCallback_t tlmBeaco
 }
 
 EddystoneService::EddystoneError_t EddystoneService::startEddystoneBeaconAdvertisements(void)
-{   
+{
     stopEddystoneBeaconAdvertisements();
 
     bool intervalValidFlag = false;
@@ -225,20 +229,20 @@ EddystoneService::EddystoneError_t EddystoneService::startEddystoneBeaconAdverti
             intervalValidFlag = true;
         }
     }
-    
+
     if (!intervalValidFlag) {
         /* Nothing to do, the period is 0 for all frames */
         return EDDYSTONE_ERROR_INVALID_ADVERTISING_INTERVAL;
     }
 
     // In case left over from Config Adv Mode
-    ble.gap().clearScanResponse(); 
-        
+    ble.gap().clearScanResponse();
+
     operationMode = EDDYSTONE_MODE_BEACON;
-    
+
     /* Configure advertisements initially at power of active slot*/
-    ble.gap().setTxPower(slotRadioTxPowerLevels[activeSlot]); 
-    
+    ble.gap().setTxPower(slotRadioTxPowerLevels[activeSlot]);
+
     if (remainConnectable) {
         ble.gap().setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
     } else {
@@ -253,9 +257,10 @@ EddystoneService::EddystoneError_t EddystoneService::startEddystoneBeaconAdverti
     for (int slot = 0; slot < MAX_ADV_SLOTS; slot++) {
         if (slotAdvIntervals[slot]) {
             advFrameQueue.push(slot);
-            slotCallbackHandles[slot] = minar::Scheduler::postCallback(
-                mbed::util::FunctionPointer1<void, int>(this, &EddystoneService::enqueueFrame).bind(slot)
-            ).period(minar::milliseconds(slotAdvIntervals[slot])).getHandle();
+            slotCallbackHandles[slot] = eventQueue.post_every(
+                &EddystoneService::enqueueFrame, this, slot,
+                slotAdvIntervals[slot] /* ms */
+            );
         }
     }
     /* Start advertising */
@@ -314,7 +319,7 @@ void EddystoneService::getEddystoneParams(EddystoneParams_t &params)
 }
 
 void EddystoneService::swapAdvertisedFrame(int slot)
-{       
+{
     uint8_t* frame = slotToFrame(slot);
     uint8_t frameType = slotFrameTypes[slot];
     uint32_t timeSecs = timeSinceBootTimer.read_ms() / 1000;
@@ -332,17 +337,17 @@ void EddystoneService::swapAdvertisedFrame(int slot)
         case EDDYSTONE_FRAME_EID:
             // only update the frame if the rotation period is due
             if (timeSecs >= slotEidNextRotationTimes[slot]) {
-                eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSecs); 
+                eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSecs);
                 slotEidNextRotationTimes[slot] = timeSecs + (1 << slotEidRotationPeriodExps[slot]);
             }
             updateAdvertisementPacket(eidFrame.getAdvFrame(frame), eidFrame.getAdvFrameLength(frame));
             break;
         default:
-            //Some error occurred 
+            //Some error occurred
             error("Frame to swap in does not specify a valid type");
             break;
     }
-    ble.gap().setTxPower(slotRadioTxPowerLevels[slot]); 
+    ble.gap().setTxPower(slotRadioTxPowerLevels[slot]);
 }
 
 
@@ -380,7 +385,7 @@ void EddystoneService::enqueueFrame(int slot)
 {
     advFrameQueue.push(slot);
     if (!radioManagerCallbackHandle) {
-        /* Advertising stopped and there is not callback posted in minar. Just
+        /* Advertising stopped and there is not callback posted in the event queue. Just
          * execute the manager to resume advertising */
         manageRadio();
     }
@@ -408,12 +413,10 @@ void EddystoneService::manageRadio(void)
         /* Post a callback to itself to stop the advertisement or pop the next
          * frame from the queue. However, take into account the time taken to
          * swap in this frame. */
-        radioManagerCallbackHandle = minar::Scheduler::postCallback(
-            this,
-            &EddystoneService::manageRadio
-        ).delay(
-            minar::milliseconds(ble.gap().getMinNonConnectableAdvertisingInterval() - (timeSinceBootTimer.read_ms() - startTimeManageRadio))
-        ).tolerance(0).getHandle();
+        radioManagerCallbackHandle = eventQueue.post_in(
+            &EddystoneService::manageRadio, this,
+            ble.gap().getMinNonConnectableAdvertisingInterval() - (timeSinceBootTimer.read_ms() - startTimeManageRadio) /* ms */
+        );
     } else if (ble.gap().getState().advertising) {
         /* Nothing else to advertise, stop advertising and do not schedule any callbacks */
         ble.gap().stopAdvertising();
@@ -427,12 +430,12 @@ void EddystoneService::startEddystoneConfigService(void)
     int8_t advTxPower = slotAdvTxPowerLevels[activeSlot];
     uint8_t* slotData = slotToFrame(activeSlot) + 1;
     aes128Encrypt(unlockKey, slotEidIdentityKeys[activeSlot], encryptedEidIdentityKey);
-    
+
     capabilitiesChar      = new ReadOnlyArrayGattCharacteristic<uint8_t, sizeof(Capability_t)>(UUID_CAPABILITIES_CHAR, capabilities);
-    activeSlotChar        = new ReadWriteGattCharacteristic<uint8_t>(UUID_ACTIVE_SLOT_CHAR, &activeSlot); 
-    advIntervalChar       = new ReadWriteGattCharacteristic<uint16_t>(UUID_ADV_INTERVAL_CHAR, &beAdvInterval); 
-    radioTxPowerChar      = new ReadWriteGattCharacteristic<int8_t>(UUID_RADIO_TX_POWER_CHAR, &radioTxPower); 
-    advTxPowerChar        = new ReadWriteGattCharacteristic<int8_t>(UUID_ADV_TX_POWER_CHAR, &advTxPower); 
+    activeSlotChar        = new ReadWriteGattCharacteristic<uint8_t>(UUID_ACTIVE_SLOT_CHAR, &activeSlot);
+    advIntervalChar       = new ReadWriteGattCharacteristic<uint16_t>(UUID_ADV_INTERVAL_CHAR, &beAdvInterval);
+    radioTxPowerChar      = new ReadWriteGattCharacteristic<int8_t>(UUID_RADIO_TX_POWER_CHAR, &radioTxPower);
+    advTxPowerChar        = new ReadWriteGattCharacteristic<int8_t>(UUID_ADV_TX_POWER_CHAR, &advTxPower);
     lockStateChar         = new GattCharacteristic(UUID_LOCK_STATE_CHAR, &lockState, sizeof(uint8_t), sizeof(LockState_t), GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_READ | GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_WRITE);
     unlockChar            = new ReadWriteArrayGattCharacteristic<uint8_t, sizeof(Lock_t)>(UUID_UNLOCK_CHAR, unlockToken);
     publicEcdhKeyChar     = new GattCharacteristic(UUID_PUBLIC_ECDH_KEY_CHAR, publicEcdhKey, 0, sizeof(PublicEcdhKey_t), GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_READ);
@@ -455,7 +458,7 @@ void EddystoneService::startEddystoneConfigService(void)
     // CHAR-5
     advTxPowerChar->setReadAuthorizationCallback(this, &EddystoneService::readAdvTxPowerAuthorizationCallback);
     advTxPowerChar->setWriteAuthorizationCallback(this, &EddystoneService::writeBasicAuthorizationCallback<uint8_t>);
-    // CHAR-6 Lock State 
+    // CHAR-6 Lock State
     lockStateChar->setWriteAuthorizationCallback(this, &EddystoneService::writeLockStateAuthorizationCallback);
     // CHAR-7 Unlock
     unlockChar->setReadAuthorizationCallback(this, &EddystoneService::readUnlockAuthorizationCallback);
@@ -517,19 +520,19 @@ void EddystoneService::freeConfigCharacteristics(void)
 void EddystoneService::stopEddystoneBeaconAdvertisements(void)
 {
     /* Unschedule callbacks */
-    
+
     for (int slot = 0; slot < MAX_ADV_SLOTS; slot++) {
         if (slotCallbackHandles[slot]) {
-            minar::Scheduler::cancelCallback(slotCallbackHandles[slot]);
+            eventQueue.cancel(slotCallbackHandles[slot]);
             slotCallbackHandles[slot] = NULL;
         }
     }
-   
+
     if (radioManagerCallbackHandle) {
-        minar::Scheduler::cancelCallback(radioManagerCallbackHandle);
+        eventQueue.cancel(radioManagerCallbackHandle);
         radioManagerCallbackHandle = NULL;
     }
-    
+
     /* Stop any current Advs (ES Config or Beacon) */
     BLE::Instance().gap().stopAdvertising();
 }
@@ -548,14 +551,14 @@ void EddystoneService::updateCharacteristicValues(void)
     uint8_t slotLength = 0;
     uint8_t* slotData = NULL;
     memset(encryptedEidIdentityKey, 0, sizeof(encryptedEidIdentityKey));
-    
+
     switch(slotFrameTypes[activeSlot]) {
         case EDDYSTONE_FRAME_UID:
-          slotLength = uidFrame.getDataLength(frame); 
+          slotLength = uidFrame.getDataLength(frame);
           slotData = uidFrame.getData(frame);
           break;
         case EDDYSTONE_FRAME_URL:
-          slotLength = urlFrame.getDataLength(frame); 
+          slotLength = urlFrame.getDataLength(frame);
           slotData = urlFrame.getData(frame);
           break;
         case EDDYSTONE_FRAME_TLM:
@@ -572,7 +575,7 @@ void EddystoneService::updateCharacteristicValues(void)
 
     ble.gattServer().write(capabilitiesChar->getValueHandle(), reinterpret_cast<uint8_t *>(capabilities), sizeof(Capability_t));
     ble.gattServer().write(activeSlotChar->getValueHandle(), &activeSlot, sizeof(uint8_t));
-    ble.gattServer().write(advIntervalChar->getValueHandle(), reinterpret_cast<uint8_t *>(&beAdvInterval), sizeof(uint16_t)); 
+    ble.gattServer().write(advIntervalChar->getValueHandle(), reinterpret_cast<uint8_t *>(&beAdvInterval), sizeof(uint16_t));
     ble.gattServer().write(radioTxPowerChar->getValueHandle(), reinterpret_cast<uint8_t *>(&radioTxPower), sizeof(int8_t));
     ble.gattServer().write(advTxPowerChar->getValueHandle(), reinterpret_cast<uint8_t *>(&advTxPower), sizeof(int8_t));
     ble.gattServer().write(lockStateChar->getValueHandle(), &lockState, sizeof(uint8_t));
@@ -587,14 +590,14 @@ void EddystoneService::updateCharacteristicValues(void)
 EddystoneService::EddystoneError_t EddystoneService::startEddystoneConfigAdvertisements(void)
 {
     stopEddystoneBeaconAdvertisements();
-    
+
     if (advConfigInterval == 0) {
-        // Nothing to do, the advertisement interval is 0 
+        // Nothing to do, the advertisement interval is 0
         return EDDYSTONE_ERROR_INVALID_ADVERTISING_INTERVAL;
     }
-    
+
     operationMode = EDDYSTONE_MODE_CONFIG;
-    
+
     ble.gap().clearAdvertisingPayload();
 
     /* Accumulate the new payload */
@@ -618,7 +621,7 @@ EddystoneService::EddystoneError_t EddystoneService::startEddystoneConfigAdverti
     ble.gap().setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
     ble.gap().setAdvertisingInterval(advConfigInterval);
     ble.gap().startAdvertising();
-    
+
     return EDDYSTONE_ERROR_NONE;
 }
 
@@ -729,20 +732,20 @@ void EddystoneService::readDataAuthorizationCallback(GattReadAuthCallbackParams 
     uint8_t buf[14] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     uint8_t* slotData = buf;
     uint16_t advInterval = slotAdvIntervals[activeSlot];
-    
+
     if (lockState == LOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
         return;
     }
-   
+
     if (advInterval != 0) {
         switch(frameType) {
             case EDDYSTONE_FRAME_UID:
-                slotLength = uidFrame.getDataLength(frame); 
+                slotLength = uidFrame.getDataLength(frame);
                 slotData = uidFrame.getData(frame);
                 break;
             case EDDYSTONE_FRAME_URL:
-                slotLength = urlFrame.getDataLength(frame); 
+                slotLength = urlFrame.getDataLength(frame);
                 slotData = urlFrame.getData(frame);
                 break;
             case EDDYSTONE_FRAME_TLM:
@@ -765,7 +768,7 @@ void EddystoneService::readDataAuthorizationCallback(GattReadAuthCallbackParams 
                 break;
         }
     }
-    
+
     ble.gattServer().write(advSlotDataChar->getValueHandle(), slotData, slotLength);
     authParams->authorizationReply = AUTH_CALLBACK_REPLY_SUCCESS;
 }
@@ -832,10 +835,10 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
         if (slot < MAX_ADV_SLOTS) {
             activeSlot = slot;
         }
-        ble.gattServer().write(activeSlotChar->getValueHandle(), &activeSlot, sizeof(uint8_t)); 
+        ble.gattServer().write(activeSlotChar->getValueHandle(), &activeSlot, sizeof(uint8_t));
     // CHAR-3 ADV INTERVAL
     } else if (handle == advIntervalChar->getValueHandle()) {
-        uint16_t interval = correctAdvertisementPeriod(swapEndian(*((uint16_t *)(writeParams->data)))); 
+        uint16_t interval = correctAdvertisementPeriod(swapEndian(*((uint16_t *)(writeParams->data))));
         slotAdvIntervals[activeSlot] = interval; // Store this value for reading
         uint16_t beAdvInterval = swapEndian(slotAdvIntervals[activeSlot]);
         ble.gattServer().write(advIntervalChar->getValueHandle(), reinterpret_cast<uint8_t *>(&beAdvInterval), sizeof(uint16_t));
@@ -861,7 +864,7 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
         if ((writeParams->len == sizeof(uint8_t)) || (writeParams->len == sizeof(uint8_t) + sizeof(Lock_t))) {
             if ((newLockState == LOCKED) || (newLockState == UNLOCKED) || (newLockState == UNLOCKED_AUTO_RELOCK_DISABLED)) {
                 lockState = newLockState;
-            } 
+            }
         }
         if ((newLockState == LOCKED) && (writeParams->len == (sizeof(uint8_t) + sizeof(Lock_t))) ) {
             // And sets the new secret lock code if present
@@ -871,7 +874,7 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
             // Decrypt the new key
             aes128Decrypt(unlockKey, encryptedNewKey, newKey);
             memcpy(unlockKey, newKey, sizeof(Lock_t));
-        } 
+        }
         ble.gattServer().write(lockStateChar->getValueHandle(), reinterpret_cast<uint8_t *>(&lockState), sizeof(uint8_t));
     // CHAR-7 UNLOCK
     } else if (handle == unlockChar->getValueHandle()) {
@@ -889,7 +892,7 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
     // CHAR-9 EID INDENTITY KEY
         /* EidIdentityChar is READ ONLY */
     // CHAR-10 ADV DATA
-    } else if (handle == advSlotDataChar->getValueHandle()) { 
+    } else if (handle == advSlotDataChar->getValueHandle()) {
         uint8_t* frame = slotToFrame(activeSlot);
         int8_t advTxPower = slotAdvTxPowerLevels[activeSlot];
         uint8_t writeFrameFormat = *(writeParams->data);
@@ -897,17 +900,17 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
         uint8_t writeData[34];
         uint8_t serverPublicEcdhKey[32];
         memcpy(writeData, (writeParams->data) + 1, writeFrameLen);
-        
+
         switch(writeFrameFormat) {
-            case UIDFrame::FRAME_TYPE_UID: 
+            case UIDFrame::FRAME_TYPE_UID:
                 if (writeFrameLen == 16) {
-                    uidFrame.setData(frame, advTxPower,reinterpret_cast<const uint8_t *>((writeParams->data) + 1)); 
+                    uidFrame.setData(frame, advTxPower,reinterpret_cast<const uint8_t *>((writeParams->data) + 1));
                     slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_UID;
                 }
                 break;
-            case URLFrame::FRAME_TYPE_URL: 
+            case URLFrame::FRAME_TYPE_URL:
                if (writeFrameLen <= 18) {
-                    urlFrame.setData(frame, advTxPower, reinterpret_cast<const uint8_t*>((writeParams->data) + 1), writeFrameLen ); 
+                    urlFrame.setData(frame, advTxPower, reinterpret_cast<const uint8_t*>((writeParams->data) + 1), writeFrameLen );
                     slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_URL;
                 }
                 break;
@@ -917,8 +920,8 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
                     tlmFrame.setData(frame);
                     slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_TLM;
                 }
-                break; 
-            case EIDFrame::FRAME_TYPE_EID: 
+                break;
+            case EIDFrame::FRAME_TYPE_EID:
                 if (writeFrameLen == 17) {
                     // Least secure
                     aes128Decrypt(unlockKey, writeData, slotEidIdentityKeys[activeSlot]);
@@ -934,38 +937,38 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
                 // Establish the new frame type
                 slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_EID;
                 // Generate ADV frame packet from EidIdentity Key
-                eidFrame.update(frame, slotEidIdentityKeys[activeSlot], slotEidRotationPeriodExps[activeSlot], timeSinceBootTimer.read_ms() / 1000); 
+                eidFrame.update(frame, slotEidIdentityKeys[activeSlot], slotEidRotationPeriodExps[activeSlot], timeSinceBootTimer.read_ms() / 1000);
                 break;
-            default: 
+            default:
                 // Do nothing, this is not a recognized Frame format
                 break;
         }
         // Read takes care of setting the Characteristic  Value
     // CHAR-11 FACTORY RESET
     } else if (handle == factoryResetChar->getValueHandle() && (*((uint8_t *)writeParams->data) != 0)) {
-        // Reset parmas to default values 
+        // Reset parmas to default values
         doFactoryReset();
         // Update all characteristics based on params
         updateCharacteristicValues();
     // CHAR-12 REMAIN CONNECTABLE
     } else if (handle == remainConnectableChar->getValueHandle()) {
-        remainConnectable = *(writeParams->data); 
-        ble.gattServer().write(remainConnectableChar->getValueHandle(), &remainConnectable, sizeof(uint8_t)); 
+        remainConnectable = *(writeParams->data);
+        ble.gattServer().write(remainConnectableChar->getValueHandle(), &remainConnectable, sizeof(uint8_t));
     }
-    
+
 }
 
 void EddystoneService::setFrameTxPower(uint8_t slot, int8_t advTxPower) {
     uint8_t* frame = slotToFrame(slot);
     uint8_t frameType = slotFrameTypes[slot];
-    switch (frameType) { 
-        case UIDFrame::FRAME_TYPE_UID: 
+    switch (frameType) {
+        case UIDFrame::FRAME_TYPE_UID:
            uidFrame.setAdvTxPower(frame, advTxPower);
            break;
-        case URLFrame::FRAME_TYPE_URL: 
+        case URLFrame::FRAME_TYPE_URL:
            urlFrame.setAdvTxPower(frame, advTxPower);
            break;
-        case EIDFrame::FRAME_TYPE_EID: 
+        case EIDFrame::FRAME_TYPE_EID:
            eidFrame.setAdvTxPower(frame, advTxPower);
            break;
     }
@@ -986,7 +989,7 @@ uint8_t EddystoneService::radioTxPowerToIndex(int8_t txPower) {
 /** AES128 encrypts a 16-byte input array with a key, resulting in a 16-byte output array */
 void EddystoneService::aes128Encrypt(uint8_t key[], uint8_t input[], uint8_t output[]) {
     mbedtls_aes_context ctx;
-    mbedtls_aes_init(&ctx); 
+    mbedtls_aes_init(&ctx);
     mbedtls_aes_setkey_enc(&ctx, key, 8 * sizeof(Lock_t));
     mbedtls_aes_crypt_ecb(&ctx, MBEDTLS_AES_ENCRYPT, input, output);
     mbedtls_aes_free(&ctx);
@@ -995,7 +998,7 @@ void EddystoneService::aes128Encrypt(uint8_t key[], uint8_t input[], uint8_t out
 /** AES128 decrypts a 16-byte input array with a key, resulting in a 16-byte output array */
 void EddystoneService::aes128Decrypt(uint8_t key[], uint8_t input[], uint8_t output[]) {
     mbedtls_aes_context ctx;
-    mbedtls_aes_init(&ctx); 
+    mbedtls_aes_init(&ctx);
     mbedtls_aes_setkey_dec(&ctx, key, 8 * sizeof(Lock_t));
     mbedtls_aes_crypt_ecb(&ctx, MBEDTLS_AES_DECRYPT, input, output);
     mbedtls_aes_free(&ctx);
@@ -1005,7 +1008,7 @@ void EddystoneService::aes128Decrypt(uint8_t key[], uint8_t input[], uint8_t out
 void EddystoneService::generateRandom(uint8_t ain[], int size) {
     int i;
     // Random seed based on boot time in milliseconds
-    srand(timeSinceBootTimer.read_ms()); 
+    srand(timeSinceBootTimer.read_ms());
     for (i = 0; i < size; i++) {
         ain[i] = rand() % 256;
     }
@@ -1013,7 +1016,7 @@ void EddystoneService::generateRandom(uint8_t ain[], int size) {
 }
 
 /*  ALTERNATE Better Random number generator (but has Memory usage issues)
-Generates a set of random values in byte array[size] 
+Generates a set of random values in byte array[size]
 void EddystoneService::generateRandom(uint8_t ain[], int size) {
     mbedtls_entropy_context entropy;
     mbedtls_entropy_init(&entropy);
