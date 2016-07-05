@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include "Thunk.h"
 #include "MakeThunk.h"
+#include "EventQueue.h"
 
 #ifdef TARGET_NORDIC
 #include "util/NordicCriticalSectionLock.h"
@@ -36,7 +37,7 @@ typedef ::mbed::util::CriticalSectionLock CriticalSection;
 namespace eq {
 
 template<std::size_t EventCount, std::size_t ThunkSize>
-class EventQueueClassic {
+class EventQueueClassic: public EventQueue {
 
 public:
 	/// typedef for callable type.
@@ -123,81 +124,7 @@ public:
 
 	~EventQueueClassic() { }
 
-	/**
-	 * Post a callable to the event queue.
-	 * It will be executed during the next dispatch cycle.
-	 * @param f The callbable to be executed by the event queue.
-	 * @return the handle to the event.
-	 */
-	template<typename F>
-	event_handle_t post(const F& fn) {
-		return do_post(fn);
-	}
-
-	/**
-	 * Bind a callable and an argument then post a callable to the event queue.
-	 * It will be executed during the next dispatch cycle.
-	 * @param f The callbable to be bound with arg0.
-	 * @param arg0 The first argument to bind to f.
-	 * @return the handle to the event.
-	 */
-	template<typename F, typename Arg0>
-	event_handle_t post(const F& fn, const Arg0& arg0) {
-		return do_post(make_thunk(fn, arg0));
-	}
-
-	template<typename F, typename Arg0, typename Arg1>
-	event_handle_t post(const F& fn, const Arg0& arg0, const Arg1& arg1) {
-		return do_post(make_thunk(fn, arg0, arg1));
-	}
-
-	template<typename F, typename Arg0, typename Arg1, typename Arg2>
-	event_handle_t post(const F& fn, const Arg0& arg0, const Arg1& arg1, const Arg2& arg2) {
-		return do_post(make_thunk(fn, arg0, arg1, arg2));
-	}
-
-	template<typename F>
-	event_handle_t post_in(const F& fn, ms_time_t ms_delay) {
-		return do_post(fn, ms_delay);
-	}
-
-	template<typename F, typename Arg0>
-	event_handle_t post_in(const F& fn, const Arg0& arg0, ms_time_t ms_delay) {
-		return do_post(make_thunk(fn, arg0), ms_delay);
-	}
-
-	template<typename F, typename Arg0, typename Arg1>
-	event_handle_t post_in(const F& fn, const Arg0& arg0, const Arg1& arg1, ms_time_t ms_delay) {
-		return do_post(make_thunk(fn, arg0, arg1), ms_delay);
-	}
-
-	template<typename F, typename Arg0, typename Arg1, typename Arg2>
-	event_handle_t post_in(const F& fn, const Arg0& arg0, const Arg1& arg1, const Arg2& arg2, ms_time_t ms_delay) {
-		return do_post(make_thunk(fn, arg0, arg1, arg2), ms_delay);
-	}
-
-	template<typename F>
-	event_handle_t post_every(const F& fn, ms_time_t ms_delay) {
-		return do_post(fn, ms_delay, true);
-	}
-
-	template<typename F, typename Arg0>
-	event_handle_t post_every(const F& fn, const Arg0& arg0, ms_time_t ms_delay) {
-		return do_post(make_thunk(fn, arg0), ms_delay, true);
-	}
-
-	template<typename F, typename Arg0, typename Arg1>
-	event_handle_t post_every(const F& fn, const Arg0& arg0, const Arg1& arg1, ms_time_t ms_delay) {
-		return do_post(make_thunk(fn, arg0, arg1), ms_delay, true);
-	}
-
-	template<typename F, typename Arg0, typename Arg1, typename Arg2>
-	event_handle_t post_every(const F& fn, const Arg0& arg0, const Arg1& arg1, const Arg2& arg2, ms_time_t ms_delay) {
-		return do_post(make_thunk(fn, arg0, arg1, arg2), ms_delay, true);
-	}
-
-
-	bool cancel(event_handle_t event_handle) {
+	virtual bool cancel(event_handle_t event_handle) {
 		CriticalSection critical_section;
 		bool success = _events_queue.erase(static_cast<q_node_t*>(event_handle));
 		if (success) {
@@ -299,7 +226,7 @@ private:
 		}
 	}
 
-	event_handle_t do_post(const function_t& fn, ms_time_t ms_delay = 0, bool repeat = false) {
+	virtual event_handle_t do_post(const function_t& fn, ms_time_t ms_delay = 0, bool repeat = false) {
 		if(repeat && (ms_delay == 0)) {
 			return NULL;
 		}
