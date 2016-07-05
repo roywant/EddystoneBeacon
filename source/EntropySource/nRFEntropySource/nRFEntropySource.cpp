@@ -20,29 +20,36 @@
 #include "nrf_soc.h"
 #include "nrf_error.h"
 #include "mbed.h"
+#include <mbedtls/entropy.h>
+
 /*
  * nRF51 has a TRNG that we can access using SoftDevice.
  */
+int eddystoneEntropyPoll(void *data, unsigned char *output, size_t len, size_t *olen)
+{
+    uint8_t bytes_available = 0;
 
-int eddystoneEntropyPoll( void *data,
-                        unsigned char *output, size_t len, size_t *olen )
-    {
-        uint32_t err = 0;
-
-        err = sd_rand_application_bytes_available_get((uint8_t*)olen);
-        if (err != NRF_SUCCESS) {
-            return(-1);
-        }
-        *olen = *olen > len ? len : *olen;
-        
-        if (*olen)
-        {
-            err = sd_rand_application_vector_get(output, *olen);  
-            if (err != NRF_SUCCESS) {
-                return(-1);
-            }
-        }
-
-        return( 0 );
+    // get the number of random bytes available
+    if (sd_rand_application_bytes_available_get(&bytes_available) != NRF_SUCCESS) {
+        return MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
     }
+
+    // if there is more bytes available that what is requested,
+    // truncate the number of bytes in output to len, otherwise use the total
+    // of bytes available.
+    const uint8_t output_len = bytes_available > len ? len : bytes_available;
+
+    if (output_len) {
+        // transfer "output_len" random bytes to output.
+        if (sd_rand_application_vector_get(output, output_len) != NRF_SUCCESS) {
+            return MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+        }
+    }
+
+    // Everything went fine, commit the output_len to the output parameter
+    *olen = output_len;
+    return 0;
+}
+
+
 #endif /* #ifdef TARGET_NRF51822 */
