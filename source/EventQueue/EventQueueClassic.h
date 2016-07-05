@@ -36,7 +36,7 @@ typedef ::mbed::util::CriticalSectionLock CriticalSection;
 
 namespace eq {
 
-template<std::size_t EventCount, std::size_t ThunkSize>
+template<std::size_t EventCount>
 class EventQueueClassic: public EventQueue {
 
 public:

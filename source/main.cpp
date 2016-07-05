@@ -23,8 +23,7 @@
 // #include "stdio.h"
 
 typedef eq::EventQueueClassic<
-    /* event count */ 10,
-    /* event size */ 12
+    /* event count */ 10
 > envent_queue_t;
 
 static envent_queue_t eventQueue;
