@@ -18,7 +18,7 @@
 #define __EDDYSTONESERVICE_H__
 // 2016-03 Eddystone Unified GATT
 
-#include "EventQueue/EventQueueClassic.h"
+#include "EventQueue/EventQueue.h"
 #include "ble/BLE.h"
 #include "EddystoneTypes.h"
 #include "URLFrame.h"
@@ -269,13 +269,7 @@ public:
         NUM_EDDYSTONE_FRAMES
     };
 
-    // typedef for the event queue.
-    // Until a polynorph interface is added (instead of a template one)
-    // This typedef should be use.
-    typedef eq::EventQueueClassic<
-        /* event count */ 10,
-        /* event size */ 12
-    > event_queue_t;
+    typedef eq::EventQueue event_queue_t;
 
     /**
      * Constructor that Initializes the EddystoneService using parameters from
