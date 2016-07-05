@@ -10,7 +10,7 @@
   ],
   "dependencies": {
     "ble": "^2.0.0",
-    "mbedtls": "^2.3.0"
+    "mbedtls": "2.3.0"
   },
   "targetDependencies": {},
   "bin": "./source"
