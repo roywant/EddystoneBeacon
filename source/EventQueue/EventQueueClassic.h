@@ -36,7 +36,7 @@ typedef ::mbed::util::CriticalSectionLock CriticalSection;
 namespace eq {
 
 template<std::size_t EventCount, std::size_t ThunkSize>
-class EventQueue {
+class EventQueueClassic {
 
 public:
 	/// typedef for callable type.
@@ -117,11 +117,11 @@ private:
 
 public:
 	/// Construct an empty event queue
-	EventQueue() :
+	EventQueueClassic() :
 		_events_queue(), _ticker(), _timer(), _timed_event_pending(false) {
 	}
 
-	~EventQueue() { }
+	~EventQueueClassic() { }
 
 	/**
 	 * Post a callable to the event queue.
@@ -235,7 +235,7 @@ private:
 	void update_ticker(ms_time_t ms_delay) {
 		_timed_event_pending = true;
 		_ticker.detach();
-		_ticker.attach(this, &EventQueue::updateTime, ((float) ms_delay / 1000));
+		_ticker.attach(this, &EventQueueClassic::updateTime, ((float) ms_delay / 1000));
 	}
 
 	void update_ticker(q_node_t* ref, ms_time_t ms_delay) {

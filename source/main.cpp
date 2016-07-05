@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "EventQueue/EventQueue.h"
+#include "EventQueue/EventQueueClassic.h"
 #include "mbed-drivers/mbed.h"
 #include "ble/BLE.h"
 #include "EddystoneService.h"
@@ -22,7 +22,7 @@
 #include "PersistentStorageHelper/ConfigParamsPersistence.h"
 // #include "stdio.h"
 
-typedef eq::EventQueue<
+typedef eq::EventQueueClassic<
     /* event count */ 10,
     /* event size */ 12
 > envent_queue_t;
