@@ -29,5 +29,8 @@
     "default-slot-types": "{EDDYSTONE_FRAME_EID, EDDYSTONE_FRAME_UID, EDDYSTONE_FRAME_URL}",
     "default-slot-intervals": "{700, 0, 0}",
     "default-slot-tx-powers": "{4, -4, 4}"
+  },
+  "mbedtls": {
+    "user-config-file": "\"source/mbedtls_config.h\""
   }
 }
