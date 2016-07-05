@@ -39,21 +39,6 @@ namespace eq {
 template<std::size_t EventCount>
 class EventQueueClassic: public EventQueue {
 
-public:
-	/// typedef for callable type.
-	/// the callable type used should support the same operations
-	/// supported by a void(*)() function pointer.
-	typedef Thunk function_t;
-
-	/// handle to a posted event which will be executed later.
-	/// model after a void* pointer.
-	typedef void* event_handle_t;
-
-	/// type used for time
-	typedef std::size_t ms_time_t;
-
-private:
-
 	/// Describe an event.
 	/// An event is composed of a function f to execute after a a time t.
 	/// Optionnaly, the event can be periodic and in this case the function f
