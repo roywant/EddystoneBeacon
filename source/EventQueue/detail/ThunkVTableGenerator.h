@@ -27,11 +27,10 @@ namespace detail {
  * This class generate the vtable of a type F for a Thunk.
  * \tparam F The type of the callable for which the Thunk vtable should be
  * generated.
- * \tparam BufferSize buffer size of the Thunk
  */
-template<typename F, std::size_t BufferSize>
+template<typename F>
 struct ThunkVTableGenerator {
-	typedef Thunk<BufferSize> thunk_t;
+	typedef Thunk thunk_t;
 
 	/**
 	 * Implementation of destructor for Thunk holding an F.
@@ -63,7 +62,7 @@ struct ThunkVTableGenerator {
 	/**
 	 * The Thunk vtable for an F.
 	 */
-	static const ThunkVTable<BufferSize> vtable;
+	static const ThunkVTable vtable;
 
 private:
 	/**
@@ -84,11 +83,11 @@ private:
 /**
  * Instantiation of the Thunk vtable of F.
  */
-template<typename F, std::size_t BufferSize>
-const ThunkVTable<BufferSize> ThunkVTableGenerator<F, BufferSize>::vtable = {
-		ThunkVTableGenerator<F, BufferSize>::destroy,
-		ThunkVTableGenerator<F, BufferSize>::copy,
-		ThunkVTableGenerator<F, BufferSize>::call
+template<typename F>
+const ThunkVTable ThunkVTableGenerator<F>::vtable = {
+		ThunkVTableGenerator<F>::destroy,
+		ThunkVTableGenerator<F>::copy,
+		ThunkVTableGenerator<F>::call
 };
 
 } // namespace detail

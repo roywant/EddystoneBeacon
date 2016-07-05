@@ -27,11 +27,10 @@ namespace eq {
  * Due to the way templates and forwarding work in C++, it was not possible to
  * provide this implementation in Thunk.h
  */
-template<std::size_t BufferSize>
 template<typename F>
-Thunk<BufferSize>::Thunk(const F& f) :
+Thunk::Thunk(const F& f) :
 	_storage(),
-	_vtable(&detail::ThunkVTableGenerator<F, BufferSize>::vtable) {
+	_vtable(&detail::ThunkVTableGenerator<F>::vtable) {
 	typedef  __attribute__((unused)) char F_is_too_big_for_the_Thunk[sizeof(F) <= sizeof(_storage) ? 1 : -1];
 	new(_storage.get_storage(0)) F(f);
 }
@@ -41,10 +40,9 @@ Thunk<BufferSize>::Thunk(const F& f) :
  * This overload will be chosen when the tyope in input is a reference to a function.
  * @param  f The function to transform in Thunk.
  */
-template<std::size_t BufferSize>
-inline Thunk<BufferSize>::Thunk(void (*f)()) :
+inline Thunk::Thunk(void (*f)()) :
 	_storage(),
-	_vtable(&detail::ThunkVTableGenerator<void(*)(), BufferSize>::vtable) {
+	_vtable(&detail::ThunkVTableGenerator<void(*)()>::vtable) {
 	typedef void(*F)();
 	typedef  __attribute__((unused)) char F_is_too_big_for_the_Thunk[sizeof(F) <= sizeof(_storage) ? 1 : -1];
 	new(_storage.get_storage(0)) F(f);
@@ -55,10 +53,9 @@ inline Thunk<BufferSize>::Thunk(void (*f)()) :
  * Due to the way templates and forwarding work in C++, it was not possible to
  * provide this implementation in Thunk.h
  */
-template<std::size_t BufferSize>
-inline Thunk<BufferSize>::Thunk() :
+inline Thunk::Thunk() :
 	_storage(),
-	_vtable(&detail::ThunkVTableGenerator<void(*)(), BufferSize>::vtable) {
+	_vtable(&detail::ThunkVTableGenerator<void(*)()>::vtable) {
 	typedef void(*F)();
 	typedef  __attribute__((unused)) char F_is_too_big_for_the_Thunk[sizeof(F) <= sizeof(_storage) ? 1 : -1];
 	new(_storage.get_storage(0)) F(empty_thunk);

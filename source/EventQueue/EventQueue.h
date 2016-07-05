@@ -42,7 +42,7 @@ public:
 	/// typedef for callable type.
 	/// the callable type used should support the same operations
 	/// supported by a void(*)() function pointer.
-	typedef Thunk<ThunkSize> function_t;
+	typedef Thunk function_t;
 
 	/// handle to a posted event which will be executed later.
 	/// model after a void* pointer.

@@ -20,7 +20,6 @@
 namespace eq {
 
 // forward declaration of the Thunk class
-template<std::size_t BufferSize>
 class Thunk;
 
 namespace detail {
@@ -34,9 +33,8 @@ namespace detail {
  * \note see ThunkVTableGenerator for implementation and the generation of
  * Thunk vtables.
  */
-template<std::size_t BufferSize>
 struct ThunkVTable {
-	typedef Thunk<BufferSize> thunk_t;
+	typedef Thunk thunk_t;
 
 	/**
 	 * destroy a thunk (act like a destructor).
