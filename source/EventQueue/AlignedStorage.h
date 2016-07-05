@@ -17,6 +17,8 @@
 #ifndef EVENTQUEUE_DETAIL_ALIGNEDSTORAGE_H_
 #define EVENTQUEUE_DETAIL_ALIGNEDSTORAGE_H_
 
+#include <cstddef>
+
 namespace eq {
 
 class AnonymousDeclaration;
