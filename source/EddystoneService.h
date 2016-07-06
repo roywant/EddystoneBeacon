@@ -36,6 +36,7 @@
 #else
     #include "mbed.h"
     #include "CircularBuffer.h"
+    #include "Eddystone_config.h"
 #endif
 
 #ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL

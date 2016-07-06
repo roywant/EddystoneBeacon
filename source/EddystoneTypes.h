@@ -20,6 +20,11 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#ifndef YOTTA_CFG_MBED_OS
+    #include "Eddystone_config.h"
+#endif
+
+
 #ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_DEVICE_NAME
     #define YOTTA_CFG_EDDYSTONE_DEFAULT_DEVICE_NAME "EDDYSTONE CONFIG"
 #endif
