@@ -1060,17 +1060,17 @@ private:
     /**
      * Defines an array of UIDs to initialize UID slots
      */
-    const uint8_t slotDefaultUids[MAX_ADV_SLOTS][16] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_UIDS;
+    static const uint8_t slotDefaultUids[MAX_ADV_SLOTS][16];
 
     /**
      * Defines an array of EID (Identity keys) to initialize EID slots
      */
-    const uint8_t slotDefaultEidIdentityKeys[MAX_ADV_SLOTS][16] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_EID_IDENTITY_KEYS;
+    static const uint8_t slotDefaultEidIdentityKeys[MAX_ADV_SLOTS][16];
 
     /**
      * Defines default EID payload before being updated with the first EID rotation value
      */
-    const uint8_t allSlotsDefaultEid[8] = {0,0,0,0,0,0,0,0};
+    static const uint8_t allSlotsDefaultEid[8];
 
     /**
      * Reference to the event queue used to post tasks

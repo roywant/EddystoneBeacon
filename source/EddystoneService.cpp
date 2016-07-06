@@ -1055,3 +1055,10 @@ uint16_t EddystoneService::correctAdvertisementPeriod(uint16_t beaconPeriodIn) c
     }
     return beaconPeriodIn;
 }
+
+
+const uint8_t EddystoneService::slotDefaultUids[MAX_ADV_SLOTS][16] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_UIDS;
+
+const uint8_t EddystoneService::slotDefaultEidIdentityKeys[MAX_ADV_SLOTS][16] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_EID_IDENTITY_KEYS;
+
+const uint8_t EddystoneService::allSlotsDefaultEid[8] = {0,0,0,0,0,0,0,0};
