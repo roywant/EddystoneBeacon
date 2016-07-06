@@ -42,7 +42,7 @@ private:
 
         // convert thunk to minar FunctionPointerBind
         mbed::util::Event func(
-            mbed::util::FunctionPointer1<void, const function_t&>(
+            mbed::util::FunctionPointer1<void, function_t>(
                 free_func_thunk_call
             ).bind(fn)
         );
@@ -58,7 +58,9 @@ private:
         }
 	}
 
-    static void free_func_thunk_call(const function_t& fn) {
+	// due to design limitations in function pointer classes, it is not possible
+	// to use reference here ... 
+    static void free_func_thunk_call(function_t fn) {
         fn();
     }
 };
