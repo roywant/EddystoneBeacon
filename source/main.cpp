@@ -251,7 +251,7 @@ int main() {
 
     while (true) {
        eventQueue.dispatch();
-       ble.waitForEvent();
+       BLE::Instance().waitForEvent();
     }
 
     return 0;
