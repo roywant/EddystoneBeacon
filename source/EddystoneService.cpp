@@ -20,7 +20,7 @@
 /* Use define zero for production, 1 for testing to allow connection at any time */
 #define DEFAULT_REMAIN_CONNECTABLE 0x01
 
-const char * const EddystoneService::slotDefaultUrls[] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_URLS;
+const char * const EddystoneService::slotDefaultUrls[] = EDDYSTONE_DEFAULT_SLOT_URLS;
 
 /*
  * CONSTRUCTOR #1 Used on 1st boot (after reflash)
@@ -152,21 +152,21 @@ void EddystoneService::doFactoryReset(void)
     memcpy(capabilities + CAP_HDR_LEN, radioTxPowerLevels, sizeof(PowerLevels_t));
     activeSlot = DEFAULT_SLOT;
     // Intervals
-    uint16_t buf1[] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_INTERVALS;
+    uint16_t buf1[] = EDDYSTONE_DEFAULT_SLOT_INTERVALS;
     for (int i = 0; i < MAX_ADV_SLOTS; i++) {
             // Ensure all slot periods are in range
             buf1[i] = correctAdvertisementPeriod(buf1[i]);
     }
     memcpy(slotAdvIntervals, buf1, sizeof(SlotAdvIntervals_t));
     // Radio and Adv TX Power
-    int8_t buf2[] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_TX_POWERS;
+    int8_t buf2[] = EDDYSTONE_DEFAULT_SLOT_TX_POWERS;
     for (int i = 0; i< MAX_ADV_SLOTS; i++) {
       slotRadioTxPowerLevels[i] = buf2[i];
       slotAdvTxPowerLevels[i] = advTxPowerLevels[radioTxPowerToIndex(buf2[i])];
     }
     // Lock
     lockState      = UNLOCKED;
-    uint8_t defKeyBuf[] = YOTTA_CFG_EDDYSTONE_DEFAULT_UNLOCK_KEY;
+    uint8_t defKeyBuf[] = EDDYSTONE_DEFAULT_UNLOCK_KEY;
     memcpy(unlockKey,        defKeyBuf,     sizeof(Lock_t));
     memset(unlockToken,      0,     sizeof(Lock_t));
     memset(challenge,        0,     sizeof(Lock_t)); // NOTE: challenge is randomized on first unlockChar read;
@@ -177,11 +177,11 @@ void EddystoneService::doFactoryReset(void)
     // generateRandom(reinterpret_cast<uint8_t*>(slotEidIdentityKeys), sizeof(SlotEidIdentityKeys_t));
     memcpy(slotEidIdentityKeys, slotDefaultEidIdentityKeys, sizeof(SlotEidIdentityKeys_t));
 
-    uint8_t buf4[] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS;
+    uint8_t buf4[] = EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS;
     memcpy(slotEidRotationPeriodExps, buf4, sizeof(SlotEidRotationPeriodExps_t));
     memset(slotEidNextRotationTimes, 0, sizeof(SlotEidNextRotationTimes_t));
     //  Slot Data Type Defaults
-    uint8_t buf3[] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_TYPES;
+    uint8_t buf3[] = EDDYSTONE_DEFAULT_SLOT_TYPES;
     memcpy(slotFrameTypes, buf3, sizeof(SlotFrameTypes_t));
     // Initialize Slot Data Defaults
     for (int slot = 0; slot < MAX_ADV_SLOTS; slot++) {
@@ -1057,8 +1057,8 @@ uint16_t EddystoneService::correctAdvertisementPeriod(uint16_t beaconPeriodIn) c
 }
 
 
-const uint8_t EddystoneService::slotDefaultUids[MAX_ADV_SLOTS][16] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_UIDS;
+const uint8_t EddystoneService::slotDefaultUids[MAX_ADV_SLOTS][16] = EDDYSTONE_DEFAULT_SLOT_UIDS;
 
-const uint8_t EddystoneService::slotDefaultEidIdentityKeys[MAX_ADV_SLOTS][16] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_EID_IDENTITY_KEYS;
+const uint8_t EddystoneService::slotDefaultEidIdentityKeys[MAX_ADV_SLOTS][16] = EDDYSTONE_DEFAULT_SLOT_EID_IDENTITY_KEYS;
 
 const uint8_t EddystoneService::allSlotsDefaultEid[8] = {0,0,0,0,0,0,0,0};

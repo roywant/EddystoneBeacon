@@ -36,11 +36,12 @@
 #else
     #include "mbed.h"
     #include "CircularBuffer.h"
-    #include "Eddystone_config.h"
 #endif
 
-#ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL
-    #define YOTTA_CFG_EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL 1000
+#include "Eddystone_config.h"
+
+#ifndef EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL
+    #define EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL 1000
 #endif
 
 /**
@@ -66,7 +67,7 @@ public:
      * Default interval for advertising packets for the Eddystone-URL
      * Configuration Service.
      */
-    static const uint32_t DEFAULT_CONFIG_PERIOD_MSEC    = YOTTA_CFG_EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL;
+    static const uint32_t DEFAULT_CONFIG_PERIOD_MSEC    = EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL;
 
     /**
      * Enumeration that defines the various operation modes of the
