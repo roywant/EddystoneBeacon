@@ -29,14 +29,14 @@
 // Instantiation of the main event loop for this program
 
 #ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
-#include "EventQueue/EventQueueMinar.h"
-typedef eq::EventQueueMinar event_queue_t;
+#   include "EventQueue/EventQueueMinar.h"
+    typedef eq::EventQueueMinar event_queue_t;
 
 #else      // otherwise use the event classic queue
-#include "EventQueue/EventQueueClassic.h"
-typedef eq::EventQueueClassic<
-    /* event count */ 10
-> event_queue_t;
+#   include "EventQueue/EventQueueClassic.h"
+    typedef eq::EventQueueClassic<
+        /* event count */ 10
+    > event_queue_t;
 
 #endif
 
