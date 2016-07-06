@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-#include "mbed-drivers/mbed.h"
+#ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
+#   include "mbed-drivers/mbed.h"
+#else 
+#   include "mbed.h"
+#endif
+
 #include "ble/BLE.h"
 #include "EddystoneService.h"
 
