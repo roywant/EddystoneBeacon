@@ -107,7 +107,7 @@ public:
 		_events_queue(), _ticker(), _timer(), _timed_event_pending(false) {
 	}
 
-	~EventQueueClassic() { }
+	virtual ~EventQueueClassic() { }
 
 	virtual bool cancel(event_handle_t event_handle) {
 		CriticalSection critical_section;

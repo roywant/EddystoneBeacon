@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-#include "mbed-drivers/mbed.h"
+#ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
+#   include "mbed-drivers/mbed.h"
+#else 
+#   include "mbed.h"
+#endif
+
 #include "ble/BLE.h"
 #include "EddystoneService.h"
 
@@ -24,14 +29,14 @@
 // Instantiation of the main event loop for this program
 
 #ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
-#include "EventQueue/EventQueueMinar.h"
-typedef eq::EventQueueMinar event_queue_t;
+#   include "EventQueue/EventQueueMinar.h"
+    typedef eq::EventQueueMinar event_queue_t;
 
 #else      // otherwise use the event classic queue
-#include "EventQueue/EventQueueClassic.h"
-typedef eq::EventQueueClassic<
-    /* event count */ 10
-> event_queue_t;
+#   include "EventQueue/EventQueueClassic.h"
+    typedef eq::EventQueueClassic<
+        /* event count */ 10
+    > event_queue_t;
 
 #endif
 
@@ -40,12 +45,12 @@ static event_queue_t eventQueue;
 EddystoneService *eddyServicePtr;
 
 /* Duration after power-on that config service is available. */
-static const int CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS = YOTTA_CFG_EDDYSTONE_DEFAULT_CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS;
+static const int CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS = EDDYSTONE_DEFAULT_CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS;
 
 /* Values for ADV packets related to firmware levels, calibrated based on measured values at 1m */
-static const PowerLevels_t advTxPowerLevels = YOTTA_CFG_EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS;
+static const PowerLevels_t advTxPowerLevels = EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS;
 /* Values for radio power levels, provided by manufacturer. */
-static const PowerLevels_t radioTxPowerLevels = YOTTA_CFG_EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS;
+static const PowerLevels_t radioTxPowerLevels = EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS;
 
 // This allows a quick switch between targets without changing the 'platform'
 // settings in config.json each time. If you do change target to nrf51dk-gcc,
@@ -251,7 +256,7 @@ int main() {
 
     while (true) {
        eventQueue.dispatch();
-       ble.waitForEvent();
+       BLE::Instance().waitForEvent();
     }
 
     return 0;

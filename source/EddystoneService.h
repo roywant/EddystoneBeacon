@@ -38,8 +38,10 @@
     #include "CircularBuffer.h"
 #endif
 
-#ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL
-    #define YOTTA_CFG_EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL 1000
+#include "Eddystone_config.h"
+
+#ifndef EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL
+    #define EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL 1000
 #endif
 
 /**
@@ -65,7 +67,7 @@ public:
      * Default interval for advertising packets for the Eddystone-URL
      * Configuration Service.
      */
-    static const uint32_t DEFAULT_CONFIG_PERIOD_MSEC    = YOTTA_CFG_EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL;
+    static const uint32_t DEFAULT_CONFIG_PERIOD_MSEC    = EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL;
 
     /**
      * Enumeration that defines the various operation modes of the
@@ -1060,17 +1062,17 @@ private:
     /**
      * Defines an array of UIDs to initialize UID slots
      */
-    const uint8_t slotDefaultUids[MAX_ADV_SLOTS][16] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_UIDS;
+    static const uint8_t slotDefaultUids[MAX_ADV_SLOTS][16];
 
     /**
      * Defines an array of EID (Identity keys) to initialize EID slots
      */
-    const uint8_t slotDefaultEidIdentityKeys[MAX_ADV_SLOTS][16] = YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_EID_IDENTITY_KEYS;
+    static const uint8_t slotDefaultEidIdentityKeys[MAX_ADV_SLOTS][16];
 
     /**
      * Defines default EID payload before being updated with the first EID rotation value
      */
-    const uint8_t allSlotsDefaultEid[8] = {0,0,0,0,0,0,0,0};
+    static const uint8_t allSlotsDefaultEid[8];
 
     /**
      * Reference to the event queue used to post tasks

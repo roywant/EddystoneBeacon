@@ -19,20 +19,21 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "Eddystone_config.h"
 
-#ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_DEVICE_NAME
-    #define YOTTA_CFG_EDDYSTONE_DEFAULT_DEVICE_NAME "EDDYSTONE CONFIG"
+#ifndef EDDYSTONE_CFG_DEFAULT_DEVICE_NAME
+    #define EDDYSTONE_CFG_DEFAULT_DEVICE_NAME "EDDYSTONE CONFIG"
 #endif
 
-#ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_URLS
-    #define YOTTA_CFG_EDDYSTONE_DEFAULT_SLOT_URLS {"https://www.google.com/","http://www.mbed.com/","http://www.cnn.com/"}
+#ifndef EDDYSTONE_DEFAULT_SLOT_URLS
+    #define EDDYSTONE_DEFAULT_SLOT_URLS {"https://www.google.com/","http://www.mbed.com/","http://www.cnn.com/"}
 #endif
 
-#ifndef YOTTA_CFG_EDDYSTONE_DEFAULT_MAX_ADV_SLOTS
-    #define YOTTA_CFG_EDDYSTONE_DEFAULT_MAX_ADV_SLOTS 3
+#ifndef EDDYSTONE_DEFAULT_MAX_ADV_SLOTS
+    #define EDDYSTONE_DEFAULT_MAX_ADV_SLOTS 3
 #endif
 
-const uint8_t MAX_ADV_SLOTS = YOTTA_CFG_EDDYSTONE_DEFAULT_MAX_ADV_SLOTS;
+const uint8_t MAX_ADV_SLOTS = EDDYSTONE_DEFAULT_MAX_ADV_SLOTS;
 /**
  * Slot and Power and Interval Constants
  */
@@ -43,7 +44,7 @@ const uint8_t DEFAULT_SLOT = 0;
  */
 const uint8_t NUM_POWER_MODES = 4;
 
-/** 
+/**
  * Lock constants
  */
 const uint8_t LOCKED = 0;
@@ -147,7 +148,7 @@ const uint8_t UUID_REMAIN_CONNECTABLE_CHAR[]    = UUID_ES_BEACON(0x75, 0x0c);
 /**
  * Default name for the BLE Device Name characteristic.
  */
-const char DEFAULT_DEVICE_NAME[] = YOTTA_CFG_EDDYSTONE_DEFAULT_DEVICE_NAME;
+const char DEFAULT_DEVICE_NAME[] = EDDYSTONE_CFG_DEFAULT_DEVICE_NAME;
 
 /**
  * Default Lock State used  by EddystoneService.
@@ -201,7 +202,7 @@ typedef int8_t SlotTxPowerLevels_t[MAX_ADV_SLOTS];
  * Type representing the adv interval set for each slot
  */
 typedef uint16_t SlotAdvIntervals_t[MAX_ADV_SLOTS];
- 
+
 /**
  * Type representing the buffer used to represent the LockState and potentially
  * an updated key
@@ -211,17 +212,17 @@ typedef uint8_t LockState_t[17];
 /**
  * Type representing the EID private ECDH Key
  */
-typedef uint8_t PrivateEcdhKey_t[32]; 
+typedef uint8_t PrivateEcdhKey_t[32];
 
 /**
  * Type representing the EID public ECDH Key
  */
-typedef uint8_t PublicEcdhKey_t[32]; 
+typedef uint8_t PublicEcdhKey_t[32];
 
 /**
  * Type representing the EID Identity Key
  */
-typedef uint8_t EidIdentityKey_t[16]; 
+typedef uint8_t EidIdentityKey_t[16];
 
 /**
  * Type representing the storage for a single slot

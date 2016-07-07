@@ -167,7 +167,7 @@ private:
     /**
     * Offset for playload in a rawFrame UID
     */
-    uint8_t MAX_URL_DATA = 18;
+    static const uint8_t MAX_URL_DATA = 18;
 };
 
 #endif /* __URLFRAME_H__ */
