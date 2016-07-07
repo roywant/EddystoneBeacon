@@ -21,6 +21,22 @@
 #include "PersistentStorageHelper/ConfigParamsPersistence.h"
 // #include "stdio.h"
 
+// Instantiation of the main event loop for this program
+
+#ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
+#include "EventQueue/EventQueueMinar.h"
+typedef eq::EventQueueMinar event_queue_t;
+
+#else      // otherwise use the event classic queue
+#include "EventQueue/EventQueueClassic.h"
+typedef eq::EventQueueClassic<
+    /* event count */ 10
+> event_queue_t;
+
+#endif
+
+static event_queue_t eventQueue;
+
 EddystoneService *eddyServicePtr;
 
 /* Duration after power-on that config service is available. */
@@ -31,11 +47,11 @@ static const PowerLevels_t advTxPowerLevels = YOTTA_CFG_EDDYSTONE_DEFAULT_ADV_TX
 /* Values for radio power levels, provided by manufacturer. */
 static const PowerLevels_t radioTxPowerLevels = YOTTA_CFG_EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS;
 
-// This allows a quick switch between targets without changing the 'platform' 
-// settings in config.json each time. If you do change target to nrf51dk-gcc, 
+// This allows a quick switch between targets without changing the 'platform'
+// settings in config.json each time. If you do change target to nrf51dk-gcc,
 // note you will still need to change 'softdevice' to 's130'
 //
-// #define QUICK_SWITCH_TO_NRF51DK 1
+ #define QUICK_SWITCH_TO_NRF51DK 1
 #ifdef QUICK_SWITCH_TO_NRF51DK
     #define LED_OFF 1
     #define CONFIG_LED LED3
@@ -53,12 +69,12 @@ DigitalOut configLED(CONFIG_LED, LED_OFF);
 DigitalOut shutdownLED(SHUTDOWN_LED, LED_OFF);
 InterruptIn button(RESET_BUTTON);
 
-static int buttonBusy;                              // semaphore to make prevent switch bounce problems
+static int buttonBusy;                                    // semaphore to make prevent switch bounce problems
 
-static const int BLINKY_MSEC = 500;                 // How long to cycle config LED on/off
-static int beaconIsOn = 1;                          // Button handler boolean to switch on or off
-static minar::callback_handle_t handle = 0;         // For the config mode timeout
-static minar::callback_handle_t BlinkyHandle = 0;   // For the blinking LED when in config mode
+static const int BLINKY_MSEC = 500;                       // How long to cycle config LED on/off
+static int beaconIsOn = 1;                                // Button handler boolean to switch on or off
+static event_queue_t::event_handle_t handle = 0;         // For the config mode timeout
+static event_queue_t::event_handle_t BlinkyHandle = 0;   // For the blinking LED when in config mode
 
 static void blinky(void)  { configLED = !configLED; }
 static void shutdownLED_on(void) { shutdownLED = !LED_OFF; }
@@ -67,13 +83,14 @@ static void freeButtonBusy(void) { buttonBusy = false; }
 
 static void configLED_on(void) {
     configLED = !LED_OFF;
-    BlinkyHandle = minar::Scheduler::postCallback(blinky)
-                    .period(minar::milliseconds(BLINKY_MSEC))
-                    .getHandle();
+    BlinkyHandle = eventQueue.post_every(blinky, BLINKY_MSEC);
 }
 static void configLED_off(void) {
     configLED = LED_OFF;
-    minar::Scheduler::cancelCallback(BlinkyHandle);
+    if (BlinkyHandle) {
+        eventQueue.cancel(BlinkyHandle);
+        BlinkyHandle = NULL;
+    }
 }
 
 /**
@@ -86,7 +103,7 @@ static void timeoutToStartEddystoneBeaconAdvertisements(void)
     if (!state.connected) { /* don't switch if we're in a connected state. */
         eddyServicePtr->startEddystoneBeaconAdvertisements();
         configLED_off();
-    } 
+    }
 }
 
 /**
@@ -114,36 +131,36 @@ static void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *cbPa
     configLED_off();
     // 0.5 Second callback to rapidly re-establish Beaconing Service
     // (because it needs to be executed outside of disconnect callback)
-    minar::Scheduler::postCallback(timeoutToStartEddystoneBeaconAdvertisements).delay(minar::milliseconds(500));
+    eventQueue.post_in(timeoutToStartEddystoneBeaconAdvertisements, 500 /* ms */);
 }
 
 
 // Callback used to handle button presses from thread mode (not IRQ)
 static void button_task(void) {
-    minar::Scheduler::cancelCallback(handle);   // kill any pending callback tasks
+    eventQueue.cancel(handle);   // kill any pending callback tasks
 
     if (beaconIsOn) {
         beaconIsOn = 0;
         eddyServicePtr->stopEddystoneBeaconAdvertisements();
         configLED_off();    // just in case it's still running...
         shutdownLED_on();   // Flash shutdownLED to let user know we're turning off
-        minar::Scheduler::postCallback(shutdownLED_off).delay(minar::milliseconds(1000));
+        eventQueue.post_in(shutdownLED_off, 1000);
     } else {
+
         beaconIsOn = 1;
         eddyServicePtr->startEddystoneConfigAdvertisements();
         configLED_on();
-        handle = minar::Scheduler::postCallback(timeoutToStartEddystoneBeaconAdvertisements)
-                 .delay(minar::milliseconds(CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS * 1000))
-                 .getHandle();
+        handle = eventQueue.post_in(
+            timeoutToStartEddystoneBeaconAdvertisements,
+            CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS * 1000 /* ms */
+        );
     }
-    minar::Scheduler::postCallback(freeButtonBusy)
-                 .delay(minar::milliseconds(750))
-                 .getHandle();
+    eventQueue.post_in(freeButtonBusy, 750 /* ms */);
 }
 
 /**
  * Raw IRQ handler for the reset button. We don't want to actually do any work here.
- * Instead, we queue work to happen later using minar, by posting a callback.
+ * Instead, we queue work to happen later using an event queue, by posting a callback.
  * This has the added avantage of serialising actions, so if the button press happens
  * during the config->beacon mode transition timeout, the button_task won't happen
  * until the previous task has finished.
@@ -155,7 +172,7 @@ static void reset_rise(void)
 {
     if (!buttonBusy) {
         buttonBusy = true;
-        minar::Scheduler::postCallback(button_task);
+        eventQueue.post(button_task);
     }
 }
 
@@ -177,37 +194,38 @@ static void bleInitComplete(BLE::InitializationCompleteCallbackContext* initCont
     }
 
     ble.gap().onDisconnection(disconnectionCallback);
-    
+
     ble.gap().onConnection(connectionCallback);
 
     EddystoneService::EddystoneParams_t params;
-    
+
     // Determine if booting directly after re-Flash or not
     if (loadEddystoneServiceConfigParams(&params)) {
         // 2+ Boot after reflash, so get parms from Persistent Storage
-        eddyServicePtr = new EddystoneService(ble, params, radioTxPowerLevels);
+        eddyServicePtr = new EddystoneService(ble, params, radioTxPowerLevels, eventQueue);
     } else {
         // 1st Boot after reflash, so reset everything to defaults
         /* NOTE: slots are initialized in the constructor from the config.json file */
-        eddyServicePtr = new EddystoneService(ble, advTxPowerLevels, radioTxPowerLevels);
+        eddyServicePtr = new EddystoneService(ble, advTxPowerLevels, radioTxPowerLevels, eventQueue);
     }
-    
+
     // Save Default params in persistent storage ready for next boot event
     eddyServicePtr->getEddystoneParams(params);
     saveEddystoneServiceConfigParams(&params);
-    
+
     // Start the Eddystone Config service - This will never stop (only connectability will change)
     eddyServicePtr->startEddystoneConfigService();
 
     /* Start Eddystone config Advertizements (to initialize everything properly) */
     configLED_on();
     eddyServicePtr->startEddystoneConfigAdvertisements();
-    handle = minar::Scheduler::postCallback(timeoutToStartEddystoneBeaconAdvertisements)
-             .delay(minar::milliseconds(CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS * 1000))
-             .getHandle();
-    
+    handle = eventQueue.post_in(
+        timeoutToStartEddystoneBeaconAdvertisements,
+        CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS * 1000 /* ms */
+    );
+
    // now shut everything off (used for final beacon that ships w/ battery)
-   minar::Scheduler::postCallback(button_task).delay(minar::milliseconds(2000));
+   eventQueue.post_in(button_task, 2000 /* ms */);
 }
 
 void app_start(int, char *[])
@@ -216,7 +234,7 @@ void app_start(int, char *[])
     setbuf(stdout, NULL);
     setbuf(stderr, NULL);
     setbuf(stdin, NULL);
-    
+
     beaconIsOn = 1;             // Booting up, initialize for button handler
     buttonBusy = false;         // software debouncing of the reset button
     button.rise(&reset_rise);   // setup reset button
@@ -224,3 +242,19 @@ void app_start(int, char *[])
     BLE &ble = BLE::Instance();
     ble.init(bleInitComplete);
 }
+
+#if !defined(YOTTA_CFG_MBED_OS)
+
+int main() {
+
+    app_start(0, NULL);
+
+    while (true) {
+       eventQueue.dispatch();
+       ble.waitForEvent();
+    }
+
+    return 0;
+}
+
+#endif
