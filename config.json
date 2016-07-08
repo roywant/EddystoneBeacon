@@ -1,6 +1,6 @@
 {
   "nordic": {
-    "softdevice": "S110"
+    "softdevice": "S130"
   },
   "nrf51822": {
       "ram_size": "32K"

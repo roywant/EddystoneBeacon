@@ -230,7 +230,7 @@ static void bleInitComplete(BLE::InitializationCompleteCallbackContext* initCont
     );
 
    // now shut everything off (used for final beacon that ships w/ battery)
-   eventQueue.post_in(button_task, 2000 /* ms */);
+   //eventQueue.post_in(button_task, 2000 /* ms */);
 }
 
 void app_start(int, char *[])
