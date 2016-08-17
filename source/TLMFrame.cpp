@@ -15,6 +15,7 @@
  */
 
 #include "TLMFrame.h"
+#include "EddystoneService.h"
 
 TLMFrame::TLMFrame(uint8_t  tlmVersionIn,
                    uint16_t tlmBatteryVoltageIn,
@@ -42,10 +43,10 @@ void TLMFrame::setTLMData(uint8_t tlmVersionIn)
     tlmTimeSinceBoot     = 0;
 }
 
-void TLMFrame::setData(uint8_t *rawFrame)
+void TLMFrame::setData(uint8_t *rawFrame)  // add eidTime - a 4 byte quantity
 {
     size_t index = 0;
-    rawFrame[index++] = FRAME_SIZE_TLM + EDDYSTONE_UUID_SIZE; // Length of Frame
+    rawFrame[index++] = EDDYSTONE_UUID_SIZE + FRAME_SIZE_TLM; // Length of Frame
     rawFrame[index++] = EDDYSTONE_UUID[0];                    // 16-bit Eddystone UUID
     rawFrame[index++] = EDDYSTONE_UUID[1];
     rawFrame[index++] = FRAME_TYPE_TLM;                       // Eddystone frame type = Telemetry
@@ -64,33 +65,77 @@ void TLMFrame::setData(uint8_t *rawFrame)
     rawFrame[index++] = (uint8_t)(tlmTimeSinceBoot >> 0);     // Time Since Boot [3]
 }
 
+    
+void TLMFrame::encryptData(uint8_t* rawFrame, uint8_t* eidIdentityKey, uint8_t rotationPeriodExp, uint32_t beaconTimeSecs) {
+        
+        // Initialize AES data
+        mbedtls_aes_context ctx;
+        mbedtls_aes_init(&ctx); 
+        mbedtls_aes_setkey_enc(&ctx, eidIdentityKey, sizeof(EidIdentityKey_t) *8 );
+        // Change the TLM version number to the encrypted version
+        rawFrame[VERSION_OFFSET] = ETLM_VERSION; // Encrypted TLM Version number
+        // Create EAX Params
+        uint8_t nonce[ETLM_NONCE_LEN];
+        // Calculate the 48-bit nonce
+        generateEtlmNonce(nonce, rotationPeriodExp, beaconTimeSecs);
+ 
+        uint8_t* input = rawFrame + DATA_OFFSET;  // array size 12
+        uint8_t output[ETLM_DATA_LEN]; // array size 16 (4 bytes are added: SALT[2], MIC[2])
+        memset(output, 0, ETLM_DATA_LEN);
+        uint8_t emptyHeader[1]; // Empty header
+        printf("EIDIdentityKey=\r\n"); EddystoneService::printhex(eidIdentityKey, 16);
+        printf("TLM input=\r\n"); EddystoneService::printhex(input, 12);
+        printf("ETLM SALT=\r\n"); EddystoneService::printhex(nonce+4, 2);
+        printf("ETLM Nonce=\r\n"); EddystoneService::printhex(nonce, 6);
+        // Encrypt the TLM to ETLM
+        eddy_aes_authcrypt_eax(&ctx, MBEDTLS_AES_ENCRYPT, nonce, sizeof(nonce), emptyHeader, 0, TLM_DATA_LEN, input, output, output + MIC_OFFSET, MIC_LEN);
+        // Only use first 2 bytes of Nonce
+        output[SALT_OFFSET] = nonce[4]; // Nonce MSB
+        output[SALT_OFFSET+1] = nonce[5]; // Nonce LSB
+        printf("ETLM output+SALT=\r\n"); EddystoneService::printhex(output, 16);
+        // copy the encrypted payload to the output
+        memcpy((rawFrame + DATA_OFFSET), output, ETLM_DATA_LEN);
+        // DEBUG ONLY TO CHECK DECRYPT==ENCRYPT
+        uint8_t buf[ETLM_DATA_LEN];
+        memset(buf, 0, ETLM_DATA_LEN);
+        int ret = eddy_aes_authcrypt_eax(&ctx, MBEDTLS_AES_DECRYPT, nonce, sizeof(nonce), emptyHeader, 0, TLM_DATA_LEN, output, buf, buf + MIC_OFFSET, MIC_LEN);
+        printf("ETLM Decoder ret=%d buf=\r\n", ret); EddystoneService::printhex(buf, 16);
+        // fix the frame length to the encrypted length
+        rawFrame[0] = FRAME_SIZE_ETLM + EDDYSTONE_UUID_SIZE; 
+        // Free the AES data struture
+        mbedtls_aes_free(&ctx);
+}
+    
+
 size_t TLMFrame::getRawFrameSize(void) const
 {
-    return FRAME_SIZE_TLM + EDDYSTONE_UUID_SIZE;
+    return EDDYSTONE_UUID_SIZE + FRAME_SIZE_ETLM; // DEBUG change this to be based on the rawFrame param
 }
 
 uint8_t* TLMFrame::getData(uint8_t* rawFrame) 
 {
-    setData(rawFrame);
-    return &(rawFrame[3]);
+    if (rawFrame[VERSION_OFFSET] == TLM_VERSION) {
+        setData(rawFrame);
+    }
+    return &(rawFrame[TLM_DATA_OFFSET]);
 }
 
 uint8_t TLMFrame::getDataLength(uint8_t* rawFrame)
 {
-    return rawFrame[0] - 2;
+    return rawFrame[FRAME_LEN_OFFSET] - EDDYSTONE_UUID_LEN;
 }
 
 uint8_t* TLMFrame::getAdvFrame(uint8_t* rawFrame){
-    return &(rawFrame[1]);
+    return &(rawFrame[ADV_FRAME_OFFSET]);
 }
 
 uint8_t TLMFrame::getAdvFrameLength(uint8_t* rawFrame){
-    return rawFrame[0];
+    return rawFrame[FRAME_LEN_OFFSET];
 }
 
 void TLMFrame::updateTimeSinceBoot(uint32_t nowInMillis)
 {
-    tlmTimeSinceBoot      += (nowInMillis - lastTimeSinceBootRead) / 100;
+    tlmTimeSinceBoot      += (nowInMillis - lastTimeSinceBootRead) / 100;  // Measured in tenths of a second
     lastTimeSinceBootRead  = nowInMillis;
 }
 
@@ -123,3 +168,19 @@ uint8_t TLMFrame::getTLMVersion(void) const
 {
     return tlmVersion;
 }
+
+int TLMFrame::generateEtlmNonce(uint8_t* nonce, uint8_t rotationPeriodExp, uint32_t beaconTimeSecs) {
+    int rc = 0;
+    if (sizeof(nonce) != ETLM_NONCE_LEN) {
+      rc = ETLM_NONCE_INVALID_LEN; 
+    }
+    uint32_t scaledTime = (beaconTimeSecs >> rotationPeriodExp) << rotationPeriodExp;
+    int index = 0;
+    nonce[index++] = (scaledTime  >> 24) & 0xff;
+    nonce[index++] = (scaledTime >> 16) & 0xff;
+    nonce[index++] = (scaledTime >> 8) & 0xff;
+    nonce[index++] = scaledTime & 0xff;
+    EddystoneService::generateRandom(nonce + index, SALT_LEN);
+    return rc;
+}
+

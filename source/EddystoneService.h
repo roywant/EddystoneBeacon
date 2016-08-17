@@ -57,11 +57,11 @@ public:
      * Service.
      */
     static const uint16_t TOTAL_CHARACTERISTICS = 12;
-
+    
     /**
-     * Max number of bytes transferred to/from a slot
+     * Max data that can be written to the data characteristic
      */
-    static const uint8_t MAX_SLOT_SIZE = 20;
+    static const uint8_t MAX_DATA_WRITE = 34; // FrameType+32B(IdentityKey)+Exp
 
     /**
      * Default interval for advertising packets for the Eddystone-URL
@@ -322,6 +322,12 @@ public:
                      const PowerLevels_t &radioPowerLevelsIn,
                      event_queue_t       &eventQueue,
                      uint32_t            advConfigIntervalIn = DEFAULT_CONFIG_PERIOD_MSEC);
+                     
+          
+    /**
+     * Generate the EID Beacon Random ECHD Keys (private and Public)
+     */                  
+    void genEIDBeaconKeys(void);                
 
     /**
      * Factory Reset all parameters in the beacon
@@ -444,9 +450,57 @@ public:
      */
     void stopEddystoneConfigService();
 
+    /**
+     * Print an array as a set of hex values 
+     *
+     * @param[in] a
+     *              The array to be printed.
+     * 
+     * @param[in] len
+     *              The length of the array.
+     *
+     * @return void
+     *
+     */
+    static void printhex(uint8_t* a, int len);
+    /**
+     * Swaps the endianess of an array ptrIn[size] to ptrOut[size]
+     *
+     * @param[in] *ptrIn
+     *              The input array
+     * @param[in] *ptrOut
+     *              The output array
+     * @param[in] size
+     *              The sizes of the arrays (num bytes to be reversed)
+     */
+    static void swapEndianArray(uint8_t *ptrIn, uint8_t *ptrOut, int size);
+    
+    /**
+     * Generate a random array of bytes of length size
+     *
+     * @param[in] *ain
+     *              The input/output array
+     * @param[in] size
+     *              The size of the array in bytes
+     */
+    static void generateRandom(uint8_t *ain, int size);
+    
+    /**
+     * Timer that keeps track of the time since boot.
+     */
 
-
+    static Timer        timeSinceBootTimer;
+    
 private:
+
+    static const uint8_t NO_EID_SLOT_SET = 0xff;
+     
+    static const uint8_t UNDEFINED_FRAME_FORMAT = 0xff;
+     
+    static const uint8_t REMAIN_CONNECTABLE_SET = 0x01;
+          
+    static const uint8_t REMAIN_CONNECTABLE_UNSET = 0x00;
+     
     /**
      * Helper funtion that will be registered as an initialization complete
      * callback when BLE::shutdown() is called. This is necessary when changing
@@ -610,6 +664,29 @@ private:
      *              Information about the values that are being read.
      */
     void readBasicTestLockAuthorizationCallback(GattReadAuthCallbackParams *authParams);
+    
+    /**
+     * This callback is invoked when a GATT client attempts to read from the
+     * EidIdentityKey characteristic of the Eddystone Configuration Service,
+     * which is blocked if the beacon lock is set to LOCKED, or the key has not
+     * been set/initialized.
+     *
+     * @param[in] authParams
+     *              Information about the values that are being read.
+     */
+    void readEidIdentityAuthorizationCallback(GattReadAuthCallbackParams *authParams);
+    
+    /**
+     * This callback is invoked when a GATT client attempts to read from the
+     * PublicEcdhKey characteristic of the Eddystone Configuration Service,
+     * which is blocked if the beacon lock is set to LOCKED, or the key has not
+     * been set/initialized.
+     *
+     * @param[in] authParams
+     *              Information about the values that are being read.
+     */
+    void readPublicEcdhKeyAuthorizationCallback(GattReadAuthCallbackParams *authParams);
+    
 
     /**
      * This callback is invoked when a GATT client attempts to read from the
@@ -620,6 +697,15 @@ private:
      *              Information about the values that are being read.
      */
     void readDataAuthorizationCallback(GattReadAuthCallbackParams *authParams);
+    
+    /**
+     * Checks if this is valid frame data (i.e. length > 0)
+     *
+     * @param[in] frame
+     *              The frame being tested
+     * @returns   frame is valid or not.
+     */
+    bool testValidFrame(uint8_t* frame);
 
     /**
      * This callback is invoked when a GATT client attempts to read the challenge
@@ -713,27 +799,7 @@ private:
      */
     void aes128Decrypt(uint8_t *key, uint8_t *input, uint8_t *output);
 
-    /**
-     * Generate a random array of bytes of length size
-     *
-     * @param[in] *ain
-     *              The input/output array
-     * @param[in] size
-     *              The size of the array in bytes
-     */
-    void generateRandom(uint8_t *ain, int size);
 
-    /**
-     * Swaps the endianess of an array ptrIn[size] to ptrOut[size]
-     *
-     * @param[in] *ptrIn
-     *              The input array
-     * @param[in] *ptrOut
-     *              The output array
-     * @param[in] size
-     *              The sizes of the arrays (num bytes to be reversed)
-     */
-    void swapEndianArray(uint8_t *ptrIn, uint8_t *ptrOut, int size);
 
     /**
      * Swaps the endianess of a 16-bit unsigned int
@@ -759,6 +825,23 @@ private:
      *       - Gap::getMaxAdvertisingInterval()
      */
     uint16_t correctAdvertisementPeriod(uint16_t beaconPeriodIn) const;
+    
+    /**
+     * Swaps the endianess of a 16-bit unsigned int
+     *
+     * @param[in] arg
+     *              The value with the byte order to be reversed
+     *
+     * @return The resulting 16-bit value with byte order reversed
+     */
+    void setRandomMacAddress(void);     
+    
+    /**
+     * Finds the first EID slot set
+     *
+     * @return slot number (and if not, returns NO_EID_SLOT_SET = -1)
+     */
+    int getEidSlot(void);
 
     /**
      * BLE instance that EddystoneService will operate on.
@@ -774,6 +857,8 @@ private:
      * Current EddystoneServce operation mode.
      */
     uint8_t                                                         operationMode;
+    
+    int                                                             genBeaconKeyRC;
 
     /**
      * GATT Service Variables
@@ -855,6 +940,11 @@ private:
      * EID: An array holding the 256-bit public Ecdh Key (big endian)
      */
     PublicEcdhKey_t                                                 publicEcdhKey;
+    
+    /**
+     * EID: An array holding the 256-bit public Ecdh Key (little endian)
+     */
+    PublicEcdhKey_t                                                 publicEcdhKeyLE;
 
     /**
      * EID: An array holding the slot rotation period exponents
@@ -1026,7 +1116,7 @@ private:
     /**
      * Timer that keeps track of the time since boot.
      */
-    Timer                                                           timeSinceBootTimer;
+    //Timer                                                           timeSinceBootTimer;
 
     /**
      * Type for the array of callback handles for all the slot timers
@@ -1077,7 +1167,12 @@ private:
     /**
      * Reference to the event queue used to post tasks
      */
-    event_queue_t& eventQueue;
+    event_queue_t&                  eventQueue;
+    
+    /**
+     * Next EID slot frame that will be transmitted
+     */
+    uint8_t                         nextEidSlot;                     
 };
 
 #endif  /* __EDDYSTONESERVICE_H__ */

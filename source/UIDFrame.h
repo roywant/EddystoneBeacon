@@ -35,6 +35,11 @@ public:
     UIDFrame(void);
     
     /**
+     * Clear frame (intervally indicated by length = 0 )
+     */
+    void clearFrame(uint8_t* frame);
+    
+    /**
      * Construct the raw bytes of the Eddystone-UID frame that will be directly
      * used in the advertising packets.
      *
@@ -126,7 +131,14 @@ public:
     static const uint8_t FRAME_TYPE_UID = 0x00;
 
 private:
-
+    static const uint8_t UID_FRAME_LEN = 20; 
+    static const uint8_t FRAME_LEN_OFFSET = 0;
+    static const uint8_t EDDYSTONE_UUID_LEN = 2;
+    static const uint8_t UID_DATA_OFFSET = 3;
+    static const uint8_t ADV_FRAME_OFFSET = 1;
+    static const uint8_t UID_VALUE_OFFSET = 5;
+    static const uint8_t UID_HEADER_LEN = 4;
+    static const uint8_t UID_TXPOWER_OFFSET = 4;
     /**
      * The size (in bytes) of an Eddystone-UID frame.
      * This is the some of the Eddystone UUID(2 bytes), FrameType, AdvTxPower,

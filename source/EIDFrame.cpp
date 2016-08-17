@@ -16,19 +16,29 @@
 
 #include "EIDFrame.h"
 #include "EddystoneService.h"
+#include "EntropySource/EntropySource.h"
 
-EIDFrame::EIDFrame(void)
+EIDFrame::EIDFrame()
 {
     mbedtls_entropy_init(&entropy);
+    // init entropy source
+    eddystoneRegisterEntropySource(&entropy);
+    // printf("ENTROPY REGISTERED\r\n");
+    // init Random
     mbedtls_ctr_drbg_init(&ctr_drbg);
-    mbedtls_ecdh_init(&ecdh_ctx);
+    // init ecdh
+    // mbedtls_ecdh_init(&ecdh_ctx);
+}
+
+void EIDFrame::clearFrame(uint8_t* frame) {
+    frame[FRAME_LEN_OFFSET] = 0; // Set frame length to zero to clear it
 }
 
 
 void EIDFrame::setData(uint8_t *rawFrame, int8_t advTxPower, const uint8_t* eidData)
 {
     size_t index = 0;
-    rawFrame[index++] = EID_LENGTH + 4;                         // EID length + overhead of four bytes below
+    rawFrame[index++] = EDDYSTONE_UUID_SIZE + EID_FRAME_LEN;   // EID length + overhead of four bytes below
     rawFrame[index++] = EDDYSTONE_UUID[0];                      // 16-bit Eddystone UUID
     rawFrame[index++] = EDDYSTONE_UUID[1];
     rawFrame[index++] = FRAME_TYPE_EID;                         // 1B  Type
@@ -39,37 +49,37 @@ void EIDFrame::setData(uint8_t *rawFrame, int8_t advTxPower, const uint8_t* eidD
 
 uint8_t* EIDFrame::getData(uint8_t* rawFrame)
 {
-        return &(rawFrame[3]);
+        return &(rawFrame[EID_DATA_OFFSET]);
 }
 
 uint8_t  EIDFrame::getDataLength(uint8_t* rawFrame)
 {
-     return rawFrame[0] - 2;
+     return rawFrame[FRAME_LEN_OFFSET] - EDDYSTONE_UUID_LEN;
 }
 
 uint8_t* EIDFrame::getAdvFrame(uint8_t* rawFrame)
 {
-    return &(rawFrame[1]);
+    return &(rawFrame[ADV_FRAME_OFFSET]);
 }
 
 uint8_t EIDFrame::getAdvFrameLength(uint8_t* rawFrame)
 {
-    return rawFrame[0];
+    return rawFrame[FRAME_LEN_OFFSET];
 }
 
 uint8_t* EIDFrame::getEid(uint8_t* rawFrame)
 {
-    return &(rawFrame[5]);
+    return &(rawFrame[EID_VALUE_OFFSET]);
 }
 
 uint8_t EIDFrame::getEidLength(uint8_t* rawFrame)
 {
-    return rawFrame[0] - 4;
+    return rawFrame[FRAME_LEN_OFFSET] - EID_HEADER_LEN;
 }
 
 void EIDFrame::setAdvTxPower(uint8_t* rawFrame, int8_t advTxPower)
 {
-    rawFrame[4] = advTxPower;
+    rawFrame[EID_TXPOWER_OFFSET] = advTxPower;
 }
 
 // Mote: This is only called after the rotation period is due, or on writing/creating a new eidIdentityKey
@@ -78,11 +88,10 @@ void EIDFrame::update(uint8_t* rawFrame, uint8_t* eidIdentityKey, uint8_t rotati
 
     // Calculate the temporary key datastructure 1
     uint8_t ts[4]; // big endian representation of time
-    ts[3] = timeSecs & 0xff;
-    ts[2] = (timeSecs & 0xffff) >> 8;
-    ts[1] = (timeSecs & 0xffffff) >> 16;
-    ts[0] = timeSecs  >> 24;
-    uint8_t tmpEidDS1[16] = { 0,0,0,0,0,0,0,0,0,0, SALT, 0, ts[0], ts[1] };
+    ts[0] = (timeSecs  >> 24) & 0xff;
+    ts[1] = (timeSecs >> 16) & 0xff;
+
+    uint8_t tmpEidDS1[16] = { 0,0,0,0,0,0,0,0,0,0,0, SALT, 0, 0, ts[0], ts[1] };
     
     // Perform the aes encryption to generate the final temporary key.
     uint8_t tmpKey[16];
@@ -90,7 +99,12 @@ void EIDFrame::update(uint8_t* rawFrame, uint8_t* eidIdentityKey, uint8_t rotati
     
     // Compute the EID 
     uint8_t eid[16];
-    uint8_t tmpEidDS2[16] = { 0,0,0,0,0,0,0,0,0,0, rotationPeriodExp, ts[0], ts[1], ts[2], ts[3] };
+    uint32_t scaledTime = (timeSecs >> rotationPeriodExp) << rotationPeriodExp;
+    ts[0] = (scaledTime  >> 24) & 0xff;
+    ts[1] = (scaledTime >> 16) & 0xff;
+    ts[2] = (scaledTime >> 8) & 0xff;
+    ts[3] = scaledTime & 0xff;
+    uint8_t tmpEidDS2[16] = { 0,0,0,0,0,0,0,0,0,0,0, rotationPeriodExp, ts[0], ts[1], ts[2], ts[3] };
     aes128Encrypt(tmpKey, tmpEidDS2, eid);
     
     // copy the leading 8 bytes of the eid result (full result length = 16) into the ADV frame
@@ -108,21 +122,13 @@ void EIDFrame::aes128Encrypt(uint8_t key[], uint8_t input[], uint8_t output[]) {
 }
 
 int EIDFrame::genBeaconKeys(PrivateEcdhKey_t beaconPrivateEcdhKey, PublicEcdhKey_t beaconPublicEcdhKey) {
-//  DEBUG TO find memory overrun
-    // mbedtls_entropy_context entropy;
-    // mbedtls_entropy_init(&entropy);
-    // mbedtls_ctr_drbg_context ctr_drbg;
-    // mbedtls_ctr_drbg_init(&ctr_drbg);
+    mbedtls_ecdh_init( &ecdh_ctx );
     
-    if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0) != 0) {
-        return EID_RND_FAIL;
+    int i = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0);
+    if (i != 0) {
+        return i; // return EID_RND_FAIL;
     }
-    
-
-    // mbedtls_ecdh_context ecdh_ctx;
-
-    // mbedtls_ecdh_init(&ecdh_ctx);
-    
+ 
     if (mbedtls_ecp_group_load(&ecdh_ctx.grp, MBEDTLS_ECP_DP_CURVE25519) != 0) {
         return EID_GRP_FAIL;
     }
@@ -132,35 +138,36 @@ int EIDFrame::genBeaconKeys(PrivateEcdhKey_t beaconPrivateEcdhKey, PublicEcdhKey
     
     mbedtls_mpi_write_binary(&ecdh_ctx.d, beaconPrivateEcdhKey, sizeof(PrivateEcdhKey_t));
     mbedtls_mpi_write_binary(&ecdh_ctx.Q.X, beaconPublicEcdhKey, sizeof(PublicEcdhKey_t));
-
-    // mbedtls_entropy_free(&entropy);
-    //
+    
+    mbedtls_ecdh_free( &ecdh_ctx );
     return EID_SUCCESS;
 }
 
 int EIDFrame::genEcdhSharedKey(PrivateEcdhKey_t beaconPrivateEcdhKey, PublicEcdhKey_t beaconPublicEcdhKey, PublicEcdhKey_t serverPublicEcdhKey, EidIdentityKey_t eidIdentityKey) {
-  
-  //Compute the ECDH shared secret by multiplying the beacon's private key and the resolver's public key.
-  // Reference: mbedtls/programs/pkey/ecdh_curve25519.c
-
-  
-  // Declare context
-  // mbedtls_ecdh_context ecdh_ctx;  //RDB
+  int16_t ret = 0;
+  uint8_t tmp[32];
   // initialize context
-  // mbedtls_ecdh_init( &ecdh_ctx );
+  mbedtls_ecdh_init( &ecdh_ctx ); // DEBUG ONLY
   mbedtls_ecp_group_load( &ecdh_ctx.grp, MBEDTLS_ECP_DP_CURVE25519 );
 
-  // copy binary beacon private key (previously generated!) into context
-  mbedtls_mpi_read_binary( &ecdh_ctx.d, beaconPrivateEcdhKey, sizeof(PrivateEcdhKey_t) );
-
+  // copy binary beacon private key (previously generated!) into context 
+  // Note: As the PrivateKey is generated locally, it is Big Endian
+  ret = mbedtls_mpi_read_binary( &ecdh_ctx.d, beaconPrivateEcdhKey, sizeof(PrivateEcdhKey_t) );
+  
   // copy server-public-key (received through GATT characteristic 10) into context
-  mbedtls_mpi_lset( &ecdh_ctx.Qp.Z, 1 );
-  mbedtls_mpi_read_binary( &ecdh_ctx.Qp.X, serverPublicEcdhKey , sizeof(PublicEcdhKey_t) ); 
+  ret = mbedtls_mpi_lset( &ecdh_ctx.Qp.Z, 1 );
+  EddystoneService::swapEndianArray(serverPublicEcdhKey, tmp, 32); // To make it Big Endian
+  ret = mbedtls_mpi_read_binary( &ecdh_ctx.Qp.X, tmp , sizeof(PublicEcdhKey_t) ); 
 
   // ECDH point multiplication
   size_t olen; // actual size of shared secret 
   uint8_t sharedSecret[32]; // shared ECDH secret
-  int ret = mbedtls_ecdh_calc_secret( &ecdh_ctx, &olen, sharedSecret, sizeof(sharedSecret), NULL, NULL );
+  memset(sharedSecret, 0, 32);
+  ret = mbedtls_ecdh_calc_secret( &ecdh_ctx, &olen, sharedSecret, sizeof(sharedSecret), NULL, NULL );
+  printf("size of olen= %d  ret=%x\r\n", olen, ret);
+  EddystoneService::swapEndianArray(sharedSecret, tmp, 32);
+  memcpy(sharedSecret, tmp, 32);
+  printf("Shared secret="); EddystoneService::printhex(sharedSecret, 32);
   if (olen != sizeof(sharedSecret)) {
       return EID_GENKEY_FAIL;
   }
@@ -174,9 +181,9 @@ int EIDFrame::genEcdhSharedKey(PrivateEcdhKey_t beaconPrivateEcdhKey, PublicEcdh
 
   // build HKDF key
   unsigned char k[ 64 ];
+  EddystoneService::swapEndianArray(beaconPublicEcdhKey, tmp, 32);
   memcpy( &k[0], serverPublicEcdhKey, sizeof(PublicEcdhKey_t) );
-  memcpy( &k[32], beaconPublicEcdhKey, sizeof(PublicEcdhKey_t) );
-  mbedtls_mpi_write_binary( &ecdh_ctx.Q.X, &k[32], 32 );
+  memcpy( &k[32], tmp, sizeof(PublicEcdhKey_t) );
 
   // compute HKDF: see https://tools.ietf.org/html/rfc5869
   // mbedtls_md_context_t md_ctx;
@@ -194,6 +201,9 @@ int EIDFrame::genEcdhSharedKey(PrivateEcdhKey_t beaconPrivateEcdhKey, PublicEcdh
 
   //Truncate the key material to 16 bytes (128 bits) to convert it to an AES-128 secret key.
   memcpy( eidIdentityKey, t, sizeof(EidIdentityKey_t) );
- 
+  printf("\r\nEIDIdentityKey="); EddystoneService::printhex(t, 32); printf("\r\n");
+
+  mbedtls_ecdh_free( &ecdh_ctx );
+  mbedtls_md_free( &md_ctx );
   return EID_SUCCESS;
 }

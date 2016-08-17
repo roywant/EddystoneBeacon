@@ -21,9 +21,7 @@
      */
     #error "INSECURE CONFIGURATION - YOU MUST IMPLEMENT AN ENTROPY SOURCE"
 
-    int eddystoneEntropyPoll( void *data,
-                        unsigned char *output, size_t len, size_t *olen )
-    {
-        return( 1 );
+    int eddystoneRegisterEntropySource(	mbedtls_entropy_context* ctx) { 
+      return 1;
     }
 #endif /* #ifdef TARGET_NRF51822 */

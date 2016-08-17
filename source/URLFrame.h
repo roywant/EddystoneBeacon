@@ -47,6 +47,11 @@ public:
     void setUnencodedUrlData(uint8_t* rawFrame, int8_t advTxPower, const char *rawUrl);
     
     /**
+     * Clear frame (intervally indicated by length = 0 )
+     */
+    void clearFrame(uint8_t* frame);
+    
+    /**
      * Construct the raw bytes of the Eddystone-URL frame from an encoded URL 
      * plus length information
      *
@@ -141,6 +146,14 @@ public:
     static const uint8_t FRAME_TYPE_URL     = 0x10;
 
 private:
+    static const uint8_t FRAME_LEN_OFFSET = 0;
+    static const uint8_t EDDYSTONE_UUID_LEN = 2;
+    static const uint8_t URL_DATA_OFFSET = 3;
+    static const uint8_t ADV_FRAME_OFFSET = 1;
+    static const uint8_t URL_VALUE_OFFSET = 5;
+    static const uint8_t URL_HEADER_LEN = 4;
+    static const uint8_t URL_TXPOWER_OFFSET = 4;
+
     /**
      * Helper function that encodes a URL null terminated string into the HTTP
      * URL Encoding required in Eddystone-URL frames. Refer to

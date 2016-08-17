@@ -22,6 +22,9 @@
 
 const char * const EddystoneService::slotDefaultUrls[] = EDDYSTONE_DEFAULT_SLOT_URLS;
 
+// Static timer used as time since boot
+Timer        EddystoneService::timeSinceBootTimer;
+
 /*
  * CONSTRUCTOR #1 Used on 1st boot (after reflash)
  */
@@ -40,9 +43,10 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     tlmBeaconTemperatureCallback(NULL),
     radioManagerCallbackHandle(NULL),
     deviceName(DEFAULT_DEVICE_NAME),
-    eventQueue(evQ)
+    eventQueue(evQ),
+    nextEidSlot(0)
 {
-
+    printf("1st Boot Init BLE Service\r\n");
     if (advConfigIntervalIn != 0) {
         if (advConfigIntervalIn < ble.gap().getMinAdvertisingInterval()) {
             advConfigInterval = ble.gap().getMinAdvertisingInterval();
@@ -55,8 +59,10 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     memcpy(radioTxPowerLevels, radioTxPowerLevelsIn, sizeof(PowerLevels_t));
     memcpy(advTxPowerLevels,   advTxPowerLevelsIn,   sizeof(PowerLevels_t));
 
-    doFactoryReset();
-
+    // 1st Boot so reset everything to factory values
+    doFactoryReset();  // includes genBeaconKeys
+    
+    printf("After FactoryReset in 1st Boot Init: genBeaconKeyRC=%d\r\n", genBeaconKeyRC);
     /* TODO: Note that this timer is started from the time EddystoneService
      * is initialised and NOT from when the device is booted.
      */
@@ -64,6 +70,7 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
 
     /* Set the device name at startup */
     ble.gap().setDeviceName(reinterpret_cast<const uint8_t *>(deviceName));
+
 }
 
 /*
@@ -84,8 +91,10 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     tlmBeaconTemperatureCallback(NULL),
     radioManagerCallbackHandle(NULL),
     deviceName(DEFAULT_DEVICE_NAME),
-    eventQueue(evQ)
+    eventQueue(evQ),
+    nextEidSlot(0)
 {
+    printf("2nd++ Boot Init BLE Service\r\n");
     memcpy(capabilities, paramsIn.capabilities, sizeof(Capability_t));
     activeSlot          = paramsIn.activeSlot;
     memcpy(radioTxPowerLevels, radioTxPowerLevelsIn, sizeof(PowerLevels_t));
@@ -113,9 +122,9 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
             advConfigInterval = advConfigIntervalIn;
         }
     }
-
+    
     // Generate fresh private and public ECDH keys for EID
-    eidFrame.genBeaconKeys(privateEcdhKey, publicEcdhKey);
+    genEIDBeaconKeys();
 
     // Recompute EID Slot Data
     for (int slot = 0; slot < MAX_ADV_SLOTS; slot++) {
@@ -139,12 +148,23 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     ble.gap().setDeviceName(reinterpret_cast<const uint8_t *>(deviceName));
 }
 
+// Regenerate the beacon keys
+void EddystoneService::genEIDBeaconKeys(void) {
+    genBeaconKeyRC = -1;
+#ifdef GEN_BEACON_KEYS_AT_INIT
+    memset(privateEcdhKey, 0, 32);
+    memset(publicEcdhKey, 0, 32);
+    genBeaconKeyRC = eidFrame.genBeaconKeys(privateEcdhKey, publicEcdhKey);
+    swapEndianArray(publicEcdhKey, publicEcdhKeyLE, 32);
+#endif
+}
 
 /**
  * Factory reset all parmeters: used at initial boot, and activated from Char 11
  */
 void EddystoneService::doFactoryReset(void)
-{
+{    
+    //printf("Factory Reset Begin\r\n");
     memset(slotCallbackHandles, 0, sizeof(SlotCallbackHandles_t));
     radioManagerCallbackHandle = NULL;
     memcpy(capabilities, CAPABILITIES_DEFAULT, CAP_HDR_LEN);
@@ -171,12 +191,10 @@ void EddystoneService::doFactoryReset(void)
     memset(unlockToken,      0,     sizeof(Lock_t));
     memset(challenge,        0,     sizeof(Lock_t)); // NOTE: challenge is randomized on first unlockChar read;
 
-    // EID
-    eidFrame.genBeaconKeys(privateEcdhKey, publicEcdhKey);
-    //// TODO(AZ): recommend to randomly generate the default EIKs, instead of letting them be fixed
-    // generateRandom(reinterpret_cast<uint8_t*>(slotEidIdentityKeys), sizeof(SlotEidIdentityKeys_t));
+    // Generate ECDH Beacon Key Pair (Private/Public)
+    genEIDBeaconKeys();
+    
     memcpy(slotEidIdentityKeys, slotDefaultEidIdentityKeys, sizeof(SlotEidIdentityKeys_t));
-
     uint8_t buf4[] = EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS;
     memcpy(slotEidRotationPeriodExps, buf4, sizeof(SlotEidRotationPeriodExps_t));
     memset(slotEidNextRotationTimes, 0, sizeof(SlotEidNextRotationTimes_t));
@@ -184,6 +202,7 @@ void EddystoneService::doFactoryReset(void)
     uint8_t buf3[] = EDDYSTONE_DEFAULT_SLOT_TYPES;
     memcpy(slotFrameTypes, buf3, sizeof(SlotFrameTypes_t));
     // Initialize Slot Data Defaults
+    int eidSlot;
     for (int slot = 0; slot < MAX_ADV_SLOTS; slot++) {
         uint8_t* frame = slotToFrame(slot);
         switch (slotFrameTypes[slot]) {
@@ -196,14 +215,24 @@ void EddystoneService::doFactoryReset(void)
             case EDDYSTONE_FRAME_TLM:
                tlmFrame.setTLMData(TLMFrame::DEFAULT_TLM_VERSION);
                tlmFrame.setData(frame);
+               eidSlot = getEidSlot();
+               if (eidSlot != NO_EID_SLOT_SET) {
+                   printf("EID slot Set in FactoryReset\r\n");
+                   tlmFrame.encryptData(frame, slotEidIdentityKeys[eidSlot], slotEidRotationPeriodExps[eidSlot], timeSinceBootTimer.read_ms() / 1000);
+               }
                break;
             case EDDYSTONE_FRAME_EID:
+               nextEidSlot = slot;
                eidFrame.setData(frame, slotAdvTxPowerLevels[slot], reinterpret_cast<const uint8_t*>(allSlotsDefaultEid));
                eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
                break;
         }
     }
-    remainConnectable = DEFAULT_REMAIN_CONNECTABLE;
+#ifdef DONT_REMAIN_CONNECTABLE
+    remainConnectable = REMAIN_CONNECTABLE_UNSET;  
+#else
+    remainConnectable = REMAIN_CONNECTABLE_SET; 
+#endif
     factoryReset = false;
 }
 
@@ -255,7 +284,8 @@ EddystoneService::EddystoneError_t EddystoneService::startEddystoneBeaconAdverti
     /* Setup callbacks to periodically add frames to be advertised to the queue and
      * add initial frame so that we have something to advertise on startup */
     for (int slot = 0; slot < MAX_ADV_SLOTS; slot++) {
-        if (slotAdvIntervals[slot]) {
+        uint8_t* frame = slotToFrame(slot);
+        if (slotAdvIntervals[slot] && testValidFrame(frame)) {
             advFrameQueue.push(slot);
             slotCallbackHandles[slot] = eventQueue.post_every(
                 &EddystoneService::enqueueFrame, this, slot,
@@ -339,6 +369,7 @@ void EddystoneService::swapAdvertisedFrame(int slot)
             if (timeSecs >= slotEidNextRotationTimes[slot]) {
                 eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSecs);
                 slotEidNextRotationTimes[slot] = timeSecs + (1 << slotEidRotationPeriodExps[slot]);
+                setRandomMacAddress(); // selects a new MAC address so the beacon is not trackable 
             }
             updateAdvertisementPacket(eidFrame.getAdvFrame(frame), eidFrame.getAdvFrameLength(frame));
             break;
@@ -366,6 +397,13 @@ void EddystoneService::updateRawTLMFrame(uint8_t* frame)
     }
     tlmFrame.updateTimeSinceBoot(timeSinceBootTimer.read_ms());
     tlmFrame.setData(frame);
+    int slot = getEidSlot();
+    printf("TLMHelper Method slot=%d\r\n", slot);
+    if (slot != NO_EID_SLOT_SET) {
+        printf("TLMHelper: Before Encrypting TLM\r\n");
+        tlmFrame.encryptData(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
+        printf("TLMHelper: Before Encrypting TLM\r\n");
+    }
 }
 
 void EddystoneService::updateAdvertisementPacket(const uint8_t* rawFrame, size_t rawFrameLength)
@@ -440,7 +478,7 @@ void EddystoneService::startEddystoneConfigService(void)
     unlockChar            = new ReadWriteArrayGattCharacteristic<uint8_t, sizeof(Lock_t)>(UUID_UNLOCK_CHAR, unlockToken);
     publicEcdhKeyChar     = new GattCharacteristic(UUID_PUBLIC_ECDH_KEY_CHAR, publicEcdhKey, 0, sizeof(PublicEcdhKey_t), GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_READ);
     eidIdentityKeyChar    = new GattCharacteristic(UUID_EID_IDENTITY_KEY_CHAR, encryptedEidIdentityKey, 0, sizeof(EidIdentityKey_t), GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_READ);
-    advSlotDataChar       = new GattCharacteristic(UUID_ADV_SLOT_DATA_CHAR, slotData, 0, MAX_SLOT_SIZE, GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_READ | GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_WRITE);
+    advSlotDataChar       = new GattCharacteristic(UUID_ADV_SLOT_DATA_CHAR, slotData, 0, 34, GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_READ | GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_WRITE);
     factoryResetChar      = new WriteOnlyGattCharacteristic<uint8_t>(UUID_FACTORY_RESET_CHAR, &factoryReset);
     remainConnectableChar = new ReadWriteGattCharacteristic<uint8_t>(UUID_REMAIN_CONNECTABLE_CHAR, &remainConnectable);
 
@@ -463,14 +501,12 @@ void EddystoneService::startEddystoneConfigService(void)
     // CHAR-7 Unlock
     unlockChar->setReadAuthorizationCallback(this, &EddystoneService::readUnlockAuthorizationCallback);
     unlockChar->setWriteAuthorizationCallback(this, &EddystoneService::writeUnlockAuthorizationCallback);
-    // CHAR-8 Public Ecdh Key
-    publicEcdhKeyChar->setReadAuthorizationCallback(this, &EddystoneService::readBasicTestLockAuthorizationCallback);
-    // publicEcdhKeyChar->setWriteAuthorizationCallback(this, &EddystoneService::writeBasicAuthorizationCallback<PublicEcdhKey_t>);
-    // CHAR-9 EID Identity Key
-    eidIdentityKeyChar->setReadAuthorizationCallback(this, &EddystoneService::readBasicTestLockAuthorizationCallback);
-    // eidIdentityKeyChar->setWriteAuthorizationCallback(this, &EddystoneService::writeBasicAuthorizationCallback<EidIdentityKey_t>);
+    // CHAR-8 Public Ecdh Key (READ ONLY)
+    publicEcdhKeyChar->setReadAuthorizationCallback(this, &EddystoneService::readPublicEcdhKeyAuthorizationCallback);
+    // CHAR-9 EID Identity Key (READ ONLY)
+    eidIdentityKeyChar->setReadAuthorizationCallback(this, &EddystoneService::readEidIdentityAuthorizationCallback);
     // CHAR-10 Adv Slot Data
-    advSlotDataChar->setReadAuthorizationCallback(this, &EddystoneService::readDataAuthorizationCallback);
+    advSlotDataChar->setReadAuthorizationCallback(this, &EddystoneService::readDataAuthorizationCallback);  
     advSlotDataChar->setWriteAuthorizationCallback(this, &EddystoneService::writeVarLengthDataAuthorizationCallback);
     // CHAR-11 Factory Reset
     factoryResetChar->setReadAuthorizationCallback(this, &EddystoneService::readBasicTestLockAuthorizationCallback);
@@ -661,14 +697,13 @@ void EddystoneService::writeVarLengthDataAuthorizationCallback(GattWriteAuthCall
 {
    if (lockState == LOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_WRITE_NOT_PERMITTED;
-    } else if (authParams->len > 19) {
+    } else if ((authParams->len > 34) || (authParams->len = 0)) {  
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_INVALID_ATT_VAL_LENGTH;
-    } else if (authParams->offset != 0) {
-        authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_INVALID_OFFSET;
     } else {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_SUCCESS;
     }
 }
+
 
 void EddystoneService::writeLockStateAuthorizationCallback(GattWriteAuthCallbackParams *authParams)
 {
@@ -717,7 +752,41 @@ void EddystoneService::writeActiveSlotAuthorizationCallback(GattWriteAuthCallbac
 
 void EddystoneService::readBasicTestLockAuthorizationCallback(GattReadAuthCallbackParams *authParams)
 {
+    printf("\r\nDO READ BASIC TEST LOCK slot=%d\r\n", activeSlot);
     if (lockState == LOCKED) {
+        authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
+    } else {
+        authParams->authorizationReply = AUTH_CALLBACK_REPLY_SUCCESS;
+    }
+}
+
+void EddystoneService::readEidIdentityAuthorizationCallback(GattReadAuthCallbackParams *authParams)
+{
+    aes128Encrypt(unlockKey, slotEidIdentityKeys[activeSlot], encryptedEidIdentityKey);
+    printf("\r\nDO READ EID IDENTITY slot=%d\r\n", activeSlot);
+    int sum = 0;
+    // Test if the IdentityKey is all zeros for this slot
+    for (uint8_t i = 0; i < sizeof(EidIdentityKey_t); i++) {
+        sum = sum + slotEidIdentityKeys[activeSlot][i];
+    }
+    ble.gattServer().write(eidIdentityKeyChar->getValueHandle(), encryptedEidIdentityKey, sizeof(EidIdentityKey_t));
+
+    // When the array is all zeros, the key has not been set, so return fault
+    if ((lockState == LOCKED) || (sum == 0)) { 
+        authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
+    } else {
+        authParams->authorizationReply = AUTH_CALLBACK_REPLY_SUCCESS;
+    }
+}
+
+void EddystoneService::readPublicEcdhKeyAuthorizationCallback(GattReadAuthCallbackParams *authParams)
+{
+    printf("\r\nDO READ BEACON PUBLIC ECDH KEY (LE) slot=%d\r\n", activeSlot);
+
+    ble.gattServer().write(publicEcdhKeyChar->getValueHandle(), publicEcdhKeyLE, sizeof(PublicEcdhKey_t));
+    
+    // When the array is all zeros, the key has not been set, so return fault
+    if (lockState == LOCKED) { 
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
     } else {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_SUCCESS;
@@ -726,55 +795,66 @@ void EddystoneService::readBasicTestLockAuthorizationCallback(GattReadAuthCallba
 
 void EddystoneService::readDataAuthorizationCallback(GattReadAuthCallbackParams *authParams)
 {
+    printf("\r\nDO READ DATA : slot=%d\r\n", activeSlot);
     uint8_t frameType = slotFrameTypes[activeSlot];
     uint8_t* frame = slotToFrame(activeSlot);
     uint8_t slotLength = 1;
     uint8_t buf[14] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     uint8_t* slotData = buf;
-    uint16_t advInterval = slotAdvIntervals[activeSlot];
-
+ 
+   printf("IN READ AFTER LOCK TEST slot=%d\r\n", activeSlot);
     if (lockState == LOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
         return;
     }
-
-    if (advInterval != 0) {
+   printf("IN READ AFTER LOCK TEST frameType=%d\r\n", frameType);
+    if (testValidFrame(frame) ) { // Check the frame has valid data before proceeding
         switch(frameType) {
             case EDDYSTONE_FRAME_UID:
+                printf("READ UID SLOT DATA slot=%d\r\n", activeSlot);
                 slotLength = uidFrame.getDataLength(frame);
                 slotData = uidFrame.getData(frame);
                 break;
             case EDDYSTONE_FRAME_URL:
+                printf("READ URL SLOT DATA slot=%d\r\n", activeSlot);
                 slotLength = urlFrame.getDataLength(frame);
                 slotData = urlFrame.getData(frame);
                 break;
             case EDDYSTONE_FRAME_TLM:
+                printf("READ TLM SLOT DATA slot=%d\r\n", activeSlot);
                 updateRawTLMFrame(frame);
                 slotLength = tlmFrame.getDataLength(frame);
                 slotData = tlmFrame.getData(frame);
+                printf("READ AFTER T/E TLM length=%d data=", slotLength); printhex(slotData, 18);
                 break;
             case EDDYSTONE_FRAME_EID:
+                printf("READ EID SLOT DATA slot=%d\r\n", activeSlot);
                 slotLength = 14;
                 buf[0] = EIDFrame::FRAME_TYPE_EID;
                 buf[1] = slotEidRotationPeriodExps[activeSlot];
                 // Add time as a big endian 32 bit number
                 uint32_t timeSecs = timeSinceBootTimer.read_ms() / 1000;
-                buf[2] = timeSecs  >> 24;
-                buf[3] = (timeSecs & 0xffffff) >> 16;
-                buf[4] = (timeSecs & 0xffff) >> 8;
+                buf[2] = (timeSecs  >> 24) & 0xff;
+                buf[3] = (timeSecs >> 16) & 0xff;
+                buf[4] = (timeSecs >> 8) & 0xff;
                 buf[5] = timeSecs & 0xff;
-                memcpy(buf + 6, eidFrame.getData(frame), 8);
+                memcpy(buf + 6, eidFrame.getEid(frame), 8);
                 slotData = buf;
                 break;
         }
     }
-
+    printf("IN READ AFTER CASE slot=%d\r\n", activeSlot);
     ble.gattServer().write(advSlotDataChar->getValueHandle(), slotData, slotLength);
     authParams->authorizationReply = AUTH_CALLBACK_REPLY_SUCCESS;
 }
 
+bool EddystoneService::testValidFrame(uint8_t* frame) {
+    return (frame[0] != 0 ) ? true : false; 
+}
+
 void EddystoneService::readUnlockAuthorizationCallback(GattReadAuthCallbackParams *authParams)
 {
+    printf("\r\nDO READ UNLOCK slot=%d\r\n", activeSlot);
     if (lockState == UNLOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
         return;
@@ -787,6 +867,7 @@ void EddystoneService::readUnlockAuthorizationCallback(GattReadAuthCallbackParam
 
 void EddystoneService::readAdvIntervalAuthorizationCallback(GattReadAuthCallbackParams *authParams)
 {
+    printf("\r\nDO READ ADV INTERVAL slot=%d\r\n", activeSlot);
     if (lockState == LOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
         return;
@@ -798,6 +879,7 @@ void EddystoneService::readAdvIntervalAuthorizationCallback(GattReadAuthCallback
 
 void EddystoneService::readRadioTxPowerAuthorizationCallback(GattReadAuthCallbackParams *authParams)
 {
+    printf("\r\nDO READ RADIO TXPOWER slot=%d\r\n", activeSlot);
     if (lockState == LOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
         return;
@@ -809,6 +891,7 @@ void EddystoneService::readRadioTxPowerAuthorizationCallback(GattReadAuthCallbac
 
 void EddystoneService::readAdvTxPowerAuthorizationCallback(GattReadAuthCallbackParams *authParams)
 {
+    printf("\r\nDO READ ADV TXPOWER slot=%d\r\n", activeSlot);
     if (lockState == LOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_READ_NOT_PERMITTED;
         return;
@@ -826,11 +909,14 @@ void EddystoneService::readAdvTxPowerAuthorizationCallback(GattReadAuthCallbackP
 void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writeParams)
 {
     uint16_t handle = writeParams->handle;
+    printf("\r\nDO WRITE: Handle=%d Len=%d\r\n", handle, writeParams->len);
     // CHAR-1 CAPABILITIES
             /* capabilitySlotChar is READ ONLY */
     // CHAR-2 ACTIVE SLOT
     if (handle == activeSlotChar->getValueHandle()) {
+        printf("Write: Active Slot Handle=%d\r\n", handle);
         uint8_t slot = *(writeParams->data);
+        printf("Active Slot=%d\r\n", slot);
         // Ensure slot does not exceed limit, or set highest slot
         if (slot < MAX_ADV_SLOTS) {
             activeSlot = slot;
@@ -838,12 +924,14 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
         ble.gattServer().write(activeSlotChar->getValueHandle(), &activeSlot, sizeof(uint8_t));
     // CHAR-3 ADV INTERVAL
     } else if (handle == advIntervalChar->getValueHandle()) {
+        printf("Write: Interval Handle=%d\r\n", handle);
         uint16_t interval = correctAdvertisementPeriod(swapEndian(*((uint16_t *)(writeParams->data))));
         slotAdvIntervals[activeSlot] = interval; // Store this value for reading
         uint16_t beAdvInterval = swapEndian(slotAdvIntervals[activeSlot]);
         ble.gattServer().write(advIntervalChar->getValueHandle(), reinterpret_cast<uint8_t *>(&beAdvInterval), sizeof(uint16_t));
     // CHAR-4 RADIO TX POWER
     } else if (handle == radioTxPowerChar->getValueHandle()) {
+        printf("Write: RADIO Power Handle=%d\r\n", handle);
         int8_t radioTxPower = *(writeParams->data);
         uint8_t index = radioTxPowerToIndex(radioTxPower);
         radioTxPower = radioTxPowerLevels[index]; // Power now corrected to nearest allowed power
@@ -854,12 +942,14 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
         ble.gattServer().write(radioTxPowerChar->getValueHandle(), reinterpret_cast<uint8_t *>(&radioTxPower), sizeof(int8_t));
     // CHAR-5 ADV TX POWER
     } else if (handle == advTxPowerChar->getValueHandle()) {
+        printf("Write: ADV Power Handle=%d\r\n", handle);
         int8_t advTxPower = *(writeParams->data);
         slotAdvTxPowerLevels[activeSlot] = advTxPower;
         setFrameTxPower(activeSlot, advTxPower); // Update the actual frame Adv TxPower for this slot
         ble.gattServer().write(advTxPowerChar->getValueHandle(), reinterpret_cast<uint8_t *>(&advTxPower), sizeof(int8_t));
     // CHAR-6 LOCK STATE
     } else if (handle == lockStateChar->getValueHandle()) {
+        printf("Write: Lock State Handle=%d\r\n", handle);
         uint8_t newLockState = *(writeParams->data);
         if ((writeParams->len == sizeof(uint8_t)) || (writeParams->len == sizeof(uint8_t) + sizeof(Lock_t))) {
             if ((newLockState == LOCKED) || (newLockState == UNLOCKED) || (newLockState == UNLOCKED_AUTO_RELOCK_DISABLED)) {
@@ -878,6 +968,7 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
         ble.gattServer().write(lockStateChar->getValueHandle(), reinterpret_cast<uint8_t *>(&lockState), sizeof(uint8_t));
     // CHAR-7 UNLOCK
     } else if (handle == unlockChar->getValueHandle()) {
+       printf("Write: Unlock Handle=%d\r\n", handle);
        // NOTE: Actual comparison with unlock code is done in:
        // writeUnlockAuthorizationCallback(...)  which is executed before this method call.
        lockState = UNLOCKED;
@@ -893,65 +984,107 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
         /* EidIdentityChar is READ ONLY */
     // CHAR-10 ADV DATA
     } else if (handle == advSlotDataChar->getValueHandle()) {
+        printf("Write: Adv Slot DATA Handle=%d\r\n", handle);
         uint8_t* frame = slotToFrame(activeSlot);
         int8_t advTxPower = slotAdvTxPowerLevels[activeSlot];
         uint8_t writeFrameFormat = *(writeParams->data);
-        uint8_t writeFrameLen = (writeParams->len) - 1;
+        uint8_t writeFrameLen = (writeParams->len);
         uint8_t writeData[34];
         uint8_t serverPublicEcdhKey[32];
+        
+        if (writeFrameLen != 0) {
+            writeFrameLen--; // Remove the Format byte from the count
+        } else {
+            writeFrameFormat = UNDEFINED_FRAME_FORMAT; // Undefined format
+        }
+        
         memcpy(writeData, (writeParams->data) + 1, writeFrameLen);
-
+        printf("ADV Data Write=%d,%d\r\n", writeFrameFormat, writeFrameLen);
         switch(writeFrameFormat) {
             case UIDFrame::FRAME_TYPE_UID:
                 if (writeFrameLen == 16) {
                     uidFrame.setData(frame, advTxPower,reinterpret_cast<const uint8_t *>((writeParams->data) + 1));
                     slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_UID;
+                } else if (writeFrameLen == 0) {
+                    uidFrame.clearFrame(frame);
                 }
                 break;
             case URLFrame::FRAME_TYPE_URL:
                if (writeFrameLen <= 18) {
                     urlFrame.setData(frame, advTxPower, reinterpret_cast<const uint8_t*>((writeParams->data) + 1), writeFrameLen );
                     slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_URL;
+                } else if (writeFrameLen == 0) {
+                    urlFrame.clearFrame(frame);
                 }
                 break;
             case TLMFrame::FRAME_TYPE_TLM:
                 if (writeFrameLen == 0) {
                     updateRawTLMFrame(frame);
                     tlmFrame.setData(frame);
+                    int slot = getEidSlot();
+                    printf("WRITE: Testing if TLM or ETLM=%d\r\n", slot);
+                    if (slot != NO_EID_SLOT_SET) {
+                        printf("WRITE: Configuring ETLM Slot time=%d\r\n", timeSinceBootTimer.read_ms() / 1000);
+                        tlmFrame.encryptData(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
+                    }
                     slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_TLM;
                 }
                 break;
             case EIDFrame::FRAME_TYPE_EID:
+                printf("EID Len=%d\r\n", writeFrameLen);
                 if (writeFrameLen == 17) {
                     // Least secure
+                    printf("EID Insecure branch\r\n");
                     aes128Decrypt(unlockKey, writeData, slotEidIdentityKeys[activeSlot]);
                     slotEidRotationPeriodExps[activeSlot] = writeData[16]; // index 16 is the exponent
-                } else if (writeFrameLen == 33) {
+                    ble.gattServer().write(eidIdentityKeyChar->getValueHandle(), reinterpret_cast<uint8_t *>(&writeData), sizeof(EidIdentityKey_t));
+                } else if (writeFrameLen == 33 ) {  
                     // Most secure
                     memcpy(serverPublicEcdhKey, writeData, 32);
+                    ble.gattServer().write(publicEcdhKeyChar->getValueHandle(), reinterpret_cast<uint8_t *>(&serverPublicEcdhKey), sizeof(PublicEcdhKey_t));
+                    printf("ServerPublicEcdhKey="); printhex(serverPublicEcdhKey, 32);
                     slotEidRotationPeriodExps[activeSlot] = writeData[32]; // index 32 is the exponent
-                    eidFrame.genEcdhSharedKey(privateEcdhKey, publicEcdhKey, serverPublicEcdhKey, slotEidIdentityKeys[activeSlot]);
+                    printf("Exponent=%i\r\n", writeData[32]);
+                    printf("genBeaconKeyRC=%x\r\n", genBeaconKeyRC);
+                    printf("BeaconPrivateEcdhKey="); printhex(privateEcdhKey, 32);
+                    printf("BeaconPublicEcdhKey="); printhex(publicEcdhKey, 32);
+                    printf("genECDHShareKey\r\n");
+                    int rc = eidFrame.genEcdhSharedKey(privateEcdhKey, publicEcdhKey, serverPublicEcdhKey, slotEidIdentityKeys[activeSlot]);
+                    printf("Gen Keys RC = %x\r\n", rc);
+                    printf("Generated eidIdentityKey="); printhex(slotEidIdentityKeys[activeSlot], 16);
+                    aes128Encrypt(unlockKey, slotEidIdentityKeys[activeSlot], encryptedEidIdentityKey);
+                    printf("encryptedEidIdentityKey="); printhex(encryptedEidIdentityKey, 16);      
+                    ble.gattServer().write(eidIdentityKeyChar->getValueHandle(), reinterpret_cast<uint8_t *>(&encryptedEidIdentityKey), sizeof(EidIdentityKey_t));
+                } else if (writeFrameLen == 0) {
+                    // Reset eidFrame
+                    eidFrame.clearFrame(frame);
+                    break;
                 } else {
                     break; // Do nothing, this is not a recognized Frame length
                 }
                 // Establish the new frame type
                 slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_EID;
+                nextEidSlot = activeSlot; // This was the last one updated
+                printf("update Eid Frame\r\n");
                 // Generate ADV frame packet from EidIdentity Key
                 eidFrame.update(frame, slotEidIdentityKeys[activeSlot], slotEidRotationPeriodExps[activeSlot], timeSinceBootTimer.read_ms() / 1000);
+                printf("END update Eid Frame\r\n");
                 break;
             default:
-                // Do nothing, this is not a recognized Frame format
+                frame[0] = 0; // Frame format unknown so clear the entire frame by writing 0 to its length
                 break;
         }
         // Read takes care of setting the Characteristic  Value
     // CHAR-11 FACTORY RESET
     } else if (handle == factoryResetChar->getValueHandle() && (*((uint8_t *)writeParams->data) != 0)) {
-        // Reset parmas to default values
+        printf("Write: Factory Reset: Handle=%d\r\n", handle);
+        // Reset params to default values
         doFactoryReset();
         // Update all characteristics based on params
         updateCharacteristicValues();
     // CHAR-12 REMAIN CONNECTABLE
     } else if (handle == remainConnectableChar->getValueHandle()) {
+        printf("Write: Remain Connectable Handle=%d\r\n", handle);
         remainConnectable = *(writeParams->data);
         ble.gattServer().write(remainConnectableChar->getValueHandle(), &remainConnectable, sizeof(uint8_t));
     }
@@ -1004,7 +1137,10 @@ void EddystoneService::aes128Decrypt(uint8_t key[], uint8_t input[], uint8_t out
     mbedtls_aes_free(&ctx);
 }
 
-/** Generates a set of random values in byte array[size]  */
+
+
+/* */
+// Generates a set of random values in byte array[size]  
 void EddystoneService::generateRandom(uint8_t ain[], int size) {
     int i;
     // Random seed based on boot time in milliseconds
@@ -1015,8 +1151,10 @@ void EddystoneService::generateRandom(uint8_t ain[], int size) {
     return;
 }
 
-/*  ALTERNATE Better Random number generator (but has Memory usage issues)
-Generates a set of random values in byte array[size]
+
+/*
+// ALTERNATE Better Random number generator (but has Memory usage issues)
+// Generates a set of random values in byte array[size]
 void EddystoneService::generateRandom(uint8_t ain[], int size) {
     mbedtls_entropy_context entropy;
     mbedtls_entropy_init(&entropy);
@@ -1024,16 +1162,17 @@ void EddystoneService::generateRandom(uint8_t ain[], int size) {
     mbedtls_ctr_drbg_init(&ctr_drbg);
     mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, NULL, 0);
     mbedtls_ctr_drbg_random(&ctr_drbg, ain, size);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
     mbedtls_entropy_free(&entropy);
     return;
 }
 */
 
-/** Reverse Array endianess: Big to Little or Little to Big */
+/** Reverse Even sized Array endianess: Big to Little or Little to Big */
 void EddystoneService::swapEndianArray(uint8_t ptrIn[], uint8_t ptrOut[], int size) {
     int i;
     for (i = 0; i < size; i++) {
-        ptrIn[i] = ptrOut[size - i - 1];
+        ptrOut[i] = ptrIn[size - i - 1];
     }
     return;
 }
@@ -1055,6 +1194,47 @@ uint16_t EddystoneService::correctAdvertisementPeriod(uint16_t beaconPeriodIn) c
     }
     return beaconPeriodIn;
 }
+
+void EddystoneService::printhex(uint8_t* a, int len) {
+    for (int i = 0; i < len; i++) {
+        printf("%x%x", a[i] >> 4, a[i] & 0x0f );
+    }
+    printf("\r\n");
+}
+
+void EddystoneService::setRandomMacAddress(void) {
+#ifdef EID_RANDOM_MAC
+    uint8_t macAddress[6]; // 48 bit Mac Address
+    generateRandom(macAddress, 6);
+    macAddress[5] |= 0xc0; // Ensure upper two bits are 11's for Random Add
+    ble.setAddress(BLEProtocol::AddressType::RANDOM_STATIC, macAddress);
+#endif
+}
+
+/* old
+int EddystoneService::getEidSlot(void) {
+    int eidSlot = NO_EID_SLOT_SET; // by default
+    for (int i = 0; i < MAX_ADV_SLOTS; i++) {
+        if (slotFrameTypes[i] == EDDYSTONE_FRAME_EID) {
+            eidSlot = i;
+        }
+    }
+    return eidSlot; // The last (highest) eid slot set
+} */
+
+int EddystoneService::getEidSlot(void) {
+    int eidSlot = NO_EID_SLOT_SET; // by default;
+    for (int i = 0; i < MAX_ADV_SLOTS; i++) {
+        if (slotFrameTypes[nextEidSlot] == EDDYSTONE_FRAME_EID) {
+             eidSlot = nextEidSlot;
+             nextEidSlot = (nextEidSlot-1) % MAX_ADV_SLOTS;
+             break;
+        }
+        nextEidSlot = (nextEidSlot-1) % MAX_ADV_SLOTS; // ensure the slot numbers wrap
+    }
+    return eidSlot;
+}
+    
 
 
 const uint8_t EddystoneService::slotDefaultUids[MAX_ADV_SLOTS][16] = EDDYSTONE_DEFAULT_SLOT_UIDS;

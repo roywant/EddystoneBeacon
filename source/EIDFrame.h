@@ -24,6 +24,7 @@
 #include "mbedtls/md.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
+#include "aes_eax.h"
 
 /**
  * Class that encapsulates data that belongs to the Eddystone-EID frame. For
@@ -43,7 +44,12 @@ public:
     /**
      * Construct a new instance of this class.
      */
-    EIDFrame(void);
+    EIDFrame();
+    
+    /**
+     * Clear frame (intervally indicated by length = 0 )
+     */
+    void clearFrame(uint8_t* frame);
     
     /**
      * Construct the raw bytes of the Eddystone-EID frame that will be directly
@@ -189,9 +195,16 @@ private:
     /**
      * The size (in bytes) of an Eddystone-EID frame.
      * This is the some of the Eddystone UUID(2 bytes), FrameType, AdvTxPower,
-     * EID Name Length, and EID Instance Length
+     * EID Value
      */
-    static const uint8_t FRAME_SIZE_EID = 10;
+    static const uint8_t EID_FRAME_LEN = 18;
+    static const uint8_t FRAME_LEN_OFFSET = 0;
+    static const uint8_t EDDYSTONE_UUID_LEN = 2;
+    static const uint8_t EID_DATA_OFFSET = 3;
+    static const uint8_t ADV_FRAME_OFFSET = 1;
+    static const uint8_t EID_VALUE_OFFSET = 5;
+    static const uint8_t EID_HEADER_LEN = 4;
+    static const uint8_t EID_TXPOWER_OFFSET = 4;
     
     /**
      * AES128 ECB Encrypts a 16-byte input array with a key, to an output array

@@ -16,53 +16,54 @@
 
 #include "UIDFrame.h"
 
-UIDFrame::UIDFrame(void)
-{
+UIDFrame::UIDFrame(void) {
 }
 
-void UIDFrame::setData(uint8_t *rawFrame, int8_t advTxPower, const uint8_t* uidData)
-{
+void UIDFrame::clearFrame(uint8_t* frame) {
+    frame[FRAME_LEN_OFFSET] = 0; // Set frame length to zero to clear it
+}
+
+void UIDFrame::setData(uint8_t *rawFrame, int8_t advTxPower, const uint8_t* uidData) {
     size_t index = 0;
-    rawFrame[index++] = UID_LENGTH + 4;                         // UID length + overhead of four bytes below
-    rawFrame[index++] = EDDYSTONE_UUID[0];                      // 16-bit Eddystone UUID
-    rawFrame[index++] = EDDYSTONE_UUID[1];
+    rawFrame[index++] = UID_HEADER_LEN + UID_LENGTH;            // UID length + overhead of four bytes below
+    rawFrame[index++] = EDDYSTONE_UUID[0];                      // LSB 16-bit Eddystone UUID (little endian)
+    rawFrame[index++] = EDDYSTONE_UUID[1];                      // MSB
     rawFrame[index++] = FRAME_TYPE_UID;                         // 1B  Type
     rawFrame[index++] = advTxPower;                             // 1B  Power @ 0meter
 
     memcpy(rawFrame + index, uidData, UID_LENGTH);              // UID = 10B NamespaceID + 6B InstanceID
 }
 
-uint8_t* UIDFrame::getData(uint8_t* rawFrame)
-{
-        return &(rawFrame[3]);
+uint8_t* UIDFrame::getData(uint8_t* rawFrame) {
+    return &(rawFrame[UID_DATA_OFFSET]);
 }
 
 uint8_t  UIDFrame::getDataLength(uint8_t* rawFrame)
 {
-     return rawFrame[0] - 2;
+    return rawFrame[FRAME_LEN_OFFSET] - EDDYSTONE_UUID_LEN;
 }
 
 uint8_t* UIDFrame::getAdvFrame(uint8_t* rawFrame)
 {
-    return &(rawFrame[1]);
+    return &(rawFrame[ADV_FRAME_OFFSET]);
 }
 
 uint8_t UIDFrame::getAdvFrameLength(uint8_t* rawFrame)
 {
-    return rawFrame[0];
+    return rawFrame[FRAME_LEN_OFFSET];
 }
 
 uint8_t* UIDFrame::getUid(uint8_t* rawFrame)
 {
-    return &(rawFrame[5]);
+    return &(rawFrame[UID_VALUE_OFFSET]);
 }
 
 uint8_t UIDFrame::getUidLength(uint8_t* rawFrame)
 {
-    return rawFrame[0] - 4;
+    return rawFrame[FRAME_LEN_OFFSET] - UID_HEADER_LEN;
 }
 
 void UIDFrame::setAdvTxPower(uint8_t* rawFrame, int8_t advTxPower)
 {
-    rawFrame[4] = advTxPower;
+    rawFrame[UID_TXPOWER_OFFSET] = advTxPower;
 }

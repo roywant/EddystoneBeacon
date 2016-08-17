@@ -29,11 +29,15 @@ void URLFrame::setUnencodedUrlData(uint8_t* rawFrame, int8_t advTxPower, const c
     setData(rawFrame, advTxPower, reinterpret_cast<const uint8_t*>(encodedUrl), encodedUrlLen);
 }
 
+void URLFrame::clearFrame(uint8_t* frame) {
+    frame[FRAME_LEN_OFFSET] = 0; // Set frame length to zero to clear it
+}
+
 void URLFrame::setData(uint8_t* rawFrame, int8_t advTxPower, const uint8_t* encodedUrlData, uint8_t encodedUrlLen)
 {
     uint8_t index = 0;
-    rawFrame[index++] = encodedUrlLen + 4;              // INDEX=0 = Frame Length = encodedURL size + 4 bytes of overhead below
-    rawFrame[index++] = EDDYSTONE_UUID[0];              // FRAME 16-bit Eddystone UUID Low Byte
+    rawFrame[index++] = URL_HEADER_LEN + encodedUrlLen; // INDEX=0 = Frame Length = encodedURL size + 4 bytes of header below
+    rawFrame[index++] = EDDYSTONE_UUID[0];              // FRAME 16-bit Eddystone UUID Low Byte (little endian)
     rawFrame[index++] = EDDYSTONE_UUID[1];              // FRAME 16-bit Eddystone UUID High Byte
     rawFrame[index++] = FRAME_TYPE_URL;                 // URL Frame Type
     rawFrame[index++] = advTxPower;                     // Power @ 0meter 
@@ -42,32 +46,32 @@ void URLFrame::setData(uint8_t* rawFrame, int8_t advTxPower, const uint8_t* enco
 }
 
 uint8_t*  URLFrame::getData(uint8_t* rawFrame) {
-    return &(rawFrame[3]);
+    return &(rawFrame[URL_DATA_OFFSET]);
 }
 
 
 uint8_t  URLFrame::getDataLength(uint8_t* rawFrame) {
-    return rawFrame[0] - 2;
+    return rawFrame[FRAME_LEN_OFFSET] - EDDYSTONE_UUID_LEN;
 }
 
 uint8_t* URLFrame::getAdvFrame(uint8_t* rawFrame) 
 {
-    return &(rawFrame[1]);
+    return &(rawFrame[ADV_FRAME_OFFSET]);
 }
 
 uint8_t URLFrame::getAdvFrameLength(uint8_t* rawFrame) 
 {
-    return rawFrame[0];
+    return rawFrame[FRAME_LEN_OFFSET];
 }
 
 uint8_t* URLFrame::getEncodedUrl(uint8_t* rawFrame)
 {
-    return &(rawFrame[6]);
+    return &(rawFrame[URL_VALUE_OFFSET]);
 }
 
 uint8_t URLFrame::getEncodedUrlLength(uint8_t* rawFrame) 
 {
-    return rawFrame[0] - 4;
+    return rawFrame[ADV_FRAME_OFFSET] - URL_HEADER_LEN;
 }
 
 
@@ -143,5 +147,5 @@ uint8_t URLFrame::encodeURL(uint8_t* encodedUrl, const char *rawUrl)
 
 void URLFrame::setAdvTxPower(uint8_t* rawFrame, int8_t advTxPower)
 {
-    rawFrame[4] = advTxPower;
+    rawFrame[URL_TXPOWER_OFFSET] = advTxPower;
 }

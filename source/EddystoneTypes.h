@@ -168,7 +168,7 @@ const uint8_t CAPABILITIES = 0x03; // Per slot variable interval and variable Po
 
 const uint8_t SUPPORTED_FRAMES_H = 0x00;
 
-const uint8_t SUPPORTED_FRAMES_L = 0x07;
+const uint8_t SUPPORTED_FRAMES_L = 0x0F;
 
 /**
  * ES GATT Capability Constant Array storing the capability constants
@@ -227,7 +227,7 @@ typedef uint8_t EidIdentityKey_t[16];
 /**
  * Type representing the storage for a single slot
  */
-typedef uint8_t Slot_t[32];
+typedef uint8_t Slot_t[32]; 
 
 /**
  * Type representing the storage for all slots given MAX_ADV_SLOTS

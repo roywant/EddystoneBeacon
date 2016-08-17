@@ -18,6 +18,32 @@
 #ifndef EDDYSTONE_CONFIG_H_
 #define EDDYSTONE_CONFIG_H_
 
+// Platform defines
+// This section allows you to change to different platforms.
+// If you don't define RESET_BUTTON, it won't compile the button handler in main.cpp
+// This also doesn't declare or use the SHUTDOWN_LED
+//
+
+// *** NRF51 USB Dongle PIN defines ***
+#define LED_OFF 1
+#define CONFIG_LED LED3
+
+// *** MinewTech PIN defines *** 
+/*
+#define LED_OFF 0
+#define CONFIG_LED p13
+#define SHUTDOWN_LED p14
+#define RESET_BUTTON p17
+*/
+
+// DEBUG OPTIONS
+// For production: aa defines below should all be uncommented. For debug comment out.
+#define GEN_BEACON_KEYS_AT_INIT
+// #define EID_RANDOM_MAC
+// #define DONT_REMAIN_CONNECTABLE
+// #define NO_4SEC_START_DELAY
+
+// BEACON BEHAVIOR DEFINED BELOW
 #define EDDYSTONE_CFG_DEFAULT_DEVICE_NAME "ES G-EID"
 
 #define EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL 1000
@@ -46,22 +72,32 @@
     { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF } \
 }
 
+   
+
+#define EDDYSTONE_DEFAULT_SLOT_EID_IDENTITY_KEYS { \
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, \
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, \
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } \
+}
+
+/*
 #define EDDYSTONE_DEFAULT_SLOT_EID_IDENTITY_KEYS { \
     { 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF }, \
     { 0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF }, \
     { 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF } \
 }
+*/
 
 #define EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS { 3, 10, 10 }
 
 #define EDDYSTONE_DEFAULT_SLOT_TYPES { \
     EDDYSTONE_FRAME_EID, \
-    EDDYSTONE_FRAME_UID, \
-    EDDYSTONE_FRAME_URL \
+    EDDYSTONE_FRAME_URL, \
+    EDDYSTONE_FRAME_UID \
 }
 
 #define EDDYSTONE_DEFAULT_SLOT_INTERVALS { 700, 0, 0 }
 
-#define EDDYSTONE_DEFAULT_SLOT_TX_POWERS { 4, -4, 4 }
+#define EDDYSTONE_DEFAULT_SLOT_TX_POWERS { 4, 4, 4 }
 
 #endif /* EDDYSTONE_CONFIG_H_ */
