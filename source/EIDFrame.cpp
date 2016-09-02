@@ -1,15 +1,16 @@
-/* mbed Microcontroller Library
- * Copyright (c) 2006-2015 ARM Limited
+/*
+ * Copyright (c) 2016, Google Inc, All Rights Reserved
+ * SPDX-License-Identifier: Apache-2.0
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
@@ -23,11 +24,8 @@ EIDFrame::EIDFrame()
     mbedtls_entropy_init(&entropy);
     // init entropy source
     eddystoneRegisterEntropySource(&entropy);
-    // printf("ENTROPY REGISTERED\r\n");
     // init Random
     mbedtls_ctr_drbg_init(&ctr_drbg);
-    // init ecdh
-    // mbedtls_ecdh_init(&ecdh_ctx);
 }
 
 void EIDFrame::clearFrame(uint8_t* frame) {
@@ -85,7 +83,6 @@ void EIDFrame::setAdvTxPower(uint8_t* rawFrame, int8_t advTxPower)
 // Mote: This is only called after the rotation period is due, or on writing/creating a new eidIdentityKey
 void EIDFrame::update(uint8_t* rawFrame, uint8_t* eidIdentityKey, uint8_t rotationPeriodExp,  uint32_t timeSecs)
 {  
-
     // Calculate the temporary key datastructure 1
     uint8_t ts[4]; // big endian representation of time
     ts[0] = (timeSecs  >> 24) & 0xff;
@@ -147,7 +144,7 @@ int EIDFrame::genEcdhSharedKey(PrivateEcdhKey_t beaconPrivateEcdhKey, PublicEcdh
   int16_t ret = 0;
   uint8_t tmp[32];
   // initialize context
-  mbedtls_ecdh_init( &ecdh_ctx ); // DEBUG ONLY
+  mbedtls_ecdh_init( &ecdh_ctx );
   mbedtls_ecp_group_load( &ecdh_ctx.grp, MBEDTLS_ECP_DP_CURVE25519 );
 
   // copy binary beacon private key (previously generated!) into context 
@@ -164,10 +161,10 @@ int EIDFrame::genEcdhSharedKey(PrivateEcdhKey_t beaconPrivateEcdhKey, PublicEcdh
   uint8_t sharedSecret[32]; // shared ECDH secret
   memset(sharedSecret, 0, 32);
   ret = mbedtls_ecdh_calc_secret( &ecdh_ctx, &olen, sharedSecret, sizeof(sharedSecret), NULL, NULL );
-  printf("size of olen= %d  ret=%x\r\n", olen, ret);
+  LOG(("size of olen= %d  ret=%x\r\n", olen, ret));
   EddystoneService::swapEndianArray(sharedSecret, tmp, 32);
   memcpy(sharedSecret, tmp, 32);
-  printf("Shared secret="); EddystoneService::printhex(sharedSecret, 32);
+  LOG(("Shared secret=")); EddystoneService::logPrintHex(sharedSecret, 32);
   if (olen != sizeof(sharedSecret)) {
       return EID_GENKEY_FAIL;
   }
@@ -201,9 +198,9 @@ int EIDFrame::genEcdhSharedKey(PrivateEcdhKey_t beaconPrivateEcdhKey, PublicEcdh
 
   //Truncate the key material to 16 bytes (128 bits) to convert it to an AES-128 secret key.
   memcpy( eidIdentityKey, t, sizeof(EidIdentityKey_t) );
-  printf("\r\nEIDIdentityKey="); EddystoneService::printhex(t, 32); printf("\r\n");
+  LOG(("\r\nEIDIdentityKey=")); EddystoneService::logPrintHex(t, 32); LOG(("\r\n"));
 
-  mbedtls_ecdh_free( &ecdh_ctx );
   mbedtls_md_free( &md_ctx );
+  mbedtls_ecdh_free( &ecdh_ctx );
   return EID_SUCCESS;
 }

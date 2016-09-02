@@ -80,10 +80,13 @@ public:
     /**
      * Get the size of the Eddystone-TLM frame constructed with the
      * current state of the TLMFrame object.
+     * 
+     * @param[in] rawFrame
+     *              Pointer to the location where the raw frame will be stored.
      *
      * @return The size in bytes of the Eddystone-TLM frame.
      */
-    size_t getRawFrameSize(void) const;
+    size_t getRawFrameSize(uint8_t* rawFrame);
     
     
     /**

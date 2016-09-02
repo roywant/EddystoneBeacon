@@ -16,13 +16,14 @@
 
 #ifndef __EDDYSTONESERVICE_H__
 #define __EDDYSTONESERVICE_H__
+//
 // 2016-03 Eddystone Unified GATT
-
+//
 #include "EventQueue/EventQueue.h"
 #include "ble/BLE.h"
 #include "EddystoneTypes.h"
-#include "URLFrame.h"
 #include "UIDFrame.h"
+#include "URLFrame.h"
 #include "TLMFrame.h"
 #include "EIDFrame.h"
 #include <string.h>
@@ -38,11 +39,8 @@
     #include "CircularBuffer.h"
 #endif
 
+#include "stdio.h"
 #include "Eddystone_config.h"
-
-#ifndef EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL
-    #define EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL 1000
-#endif
 
 /**
  * This class implements the Eddystone-URL Config Service and the Eddystone
@@ -449,7 +447,7 @@ public:
      *       a call to BLE::shutdown().
      */
     void stopEddystoneConfigService();
-
+    
     /**
      * Print an array as a set of hex values 
      *
@@ -462,7 +460,8 @@ public:
      * @return void
      *
      */
-    static void printhex(uint8_t* a, int len);
+    static void logPrintHex(uint8_t* a, int len);
+    
     /**
      * Swaps the endianess of an array ptrIn[size] to ptrOut[size]
      *
@@ -1078,12 +1077,10 @@ private:
      */
     SlotEidNextRotationTimes_t                                      slotEidNextRotationTimes;
 
-    // Debug
-    //PublicEcdhKey_t                                          publicEcdhKey;
-
-    // Debug
-    //EidIdentityKey_t                                         eidIdentityKey;
-    Lock_t                                                          encryptedEidIdentityKey;
+    /**
+     * EID: Storage for the current slot encrypted EID Identity Key
+     */
+    EidIdentityKey_t                                                encryptedEidIdentityKey;
 
     /*
      * Storage for all the slots / frames
@@ -1112,11 +1109,6 @@ private:
      * Temperature.
      */
     TlmUpdateCallback_t                                             tlmBeaconTemperatureCallback;
-
-    /**
-     * Timer that keeps track of the time since boot.
-     */
-    //Timer                                                           timeSinceBootTimer;
 
     /**
      * Type for the array of callback handles for all the slot timers

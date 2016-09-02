@@ -21,40 +21,10 @@
 #include <stddef.h>
 #include "Eddystone_config.h"
 
-#ifndef EDDYSTONE_CFG_DEFAULT_DEVICE_NAME
-    #define EDDYSTONE_CFG_DEFAULT_DEVICE_NAME "EDDYSTONE CONFIG"
-#endif
-
-#ifndef EDDYSTONE_DEFAULT_SLOT_URLS
-    #define EDDYSTONE_DEFAULT_SLOT_URLS {"https://www.google.com/","http://www.mbed.com/","http://www.cnn.com/"}
-#endif
-
-#ifndef EDDYSTONE_DEFAULT_MAX_ADV_SLOTS
-    #define EDDYSTONE_DEFAULT_MAX_ADV_SLOTS 3
-#endif
-
-const uint8_t MAX_ADV_SLOTS = EDDYSTONE_DEFAULT_MAX_ADV_SLOTS;
-/**
- * Slot and Power and Interval Constants
- */
-const uint8_t DEFAULT_SLOT = 0;
-
-/**
- * Number of radio power modes supported
- */
-const uint8_t NUM_POWER_MODES = 4;
-
-/**
- * Lock constants
- */
-const uint8_t LOCKED = 0;
-const uint8_t UNLOCKED = 1;
-const uint8_t UNLOCKED_AUTO_RELOCK_DISABLED = 2;
-
 /**
  * Macro to expand a 16-bit Eddystone UUID to 128-bit UUID.
  */
-#define UUID_ES_BEACON(FIRST, SECOND) {                         \
+#define UUID_ES_BEACON(FIRST, SECOND) {                          \
         0xa3, 0x0c8, FIRST, SECOND, 0x8e, 0xd3, 0x4b, 0xdf,      \
         0x8a, 0x39, 0xa0, 0x1b, 0xeb, 0xed, 0xe2, 0x95,          \
 }
@@ -63,6 +33,11 @@ const uint8_t UNLOCKED_AUTO_RELOCK_DISABLED = 2;
  * Eddystone 16-bit UUID.
  */
 const uint8_t EDDYSTONE_UUID[] = {0xAA, 0xFE};
+
+/**
+ * Size of Eddystone UID. Needed to construct all frames raw bytes.
+ */
+const uint16_t EDDYSTONE_UUID_SIZE = sizeof(EDDYSTONE_UUID);
 
 /** BEGINING OF CHARACTERISTICS */
 
@@ -146,35 +121,9 @@ const uint8_t UUID_REMAIN_CONNECTABLE_CHAR[]    = UUID_ES_BEACON(0x75, 0x0c);
 /** END OF CHARACTERISTICS  */
 
 /**
- * Default name for the BLE Device Name characteristic.
- */
-const char DEFAULT_DEVICE_NAME[] = EDDYSTONE_CFG_DEFAULT_DEVICE_NAME;
-
-/**
  * Default Lock State used  by EddystoneService.
  */
-const uint8_t DEFAULT_LOCK_STATE_DATA[] = {UNLOCKED};
-
-/**
- * ES GATT Capability Constants (6 values)
- */
-const uint8_t CAP_HDR_LEN = 6;  // The six constants below
-
-const uint8_t ES_GATT_VERSION = 0;
-
-const uint8_t MAX_EIDS = MAX_ADV_SLOTS;
-
-const uint8_t CAPABILITIES = 0x03; // Per slot variable interval and variable Power
-
-const uint8_t SUPPORTED_FRAMES_H = 0x00;
-
-const uint8_t SUPPORTED_FRAMES_L = 0x0F;
-
-/**
- * ES GATT Capability Constant Array storing the capability constants
- */
-const uint8_t CAPABILITIES_DEFAULT[] = {ES_GATT_VERSION, MAX_ADV_SLOTS, MAX_EIDS, CAPABILITIES, \
-                                        SUPPORTED_FRAMES_H, SUPPORTED_FRAMES_L};
+const uint8_t DEFAULT_LOCK_STATE_DATA[] = {DEFAULT_LOCK_STATE};
 
 /**
  * A type defining the size of the READ ONLY capability characteristic
@@ -279,21 +228,6 @@ typedef uint8_t UIDInstanceID_t[UID_INSTANCEID_SIZE];
  * Temperature.
  */
 typedef uint16_t (*TlmUpdateCallback_t) (uint16_t);
-
-/**
- * Size of Eddystone UID. Needed to construct all frames raw bytes.
- */
-const uint16_t EDDYSTONE_UUID_SIZE = sizeof(EDDYSTONE_UUID);
-
-/**
- * Offset for playload in a rawFrame UID
- */
-const uint8_t UID_PAYLOAD_OFFSET = 5;
-
-/**
- * Playload size for a rawFrame UID
- */
-const uint8_t UID_PAYLOAD_SIZE = 10;
 
 
 #endif /* __EDDYSTONETYPES_H__ */

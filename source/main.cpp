@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
-
 
 #ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
 #   include "mbed-drivers/mbed.h"
@@ -231,15 +229,17 @@ static void bleInitComplete(BLE::InitializationCompleteCallbackContext* initCont
 
 void app_start(int, char *[])
 {
+
+#ifdef NO_LOGGING
     /* Tell standard C library to not allocate large buffers for these streams */
-    // setbuf(stdout, NULL);
-    // setbuf(stderr, NULL);
-    // setbuf(stdin, NULL);
-    
-    // DEBUG ONLY:  delay ~4secs before starting to allow time for nRF51 hardware to settle
-    // Also allows time to attach a virtual terimal to read printf output at init time
-    // Implementation: simple loop to avoid other side effects
+    setbuf(stdout, NULL);
+    setbuf(stderr, NULL);
+    setbuf(stdin, NULL);
+#endif
+
 #ifndef NO_4SEC_START_DELAY
+    // delay ~4secs before starting to allow time the nRF51 hardware to settle
+    // Also allows time to attach a virtual terimal to read logging output during init
     wait_ms(4000);
 #endif
     
