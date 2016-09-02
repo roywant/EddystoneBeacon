@@ -28,6 +28,7 @@
 #include "cmsis.h"
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
+#include "nrf_nvic.h"
 
 namespace util {
 
