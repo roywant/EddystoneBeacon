@@ -16,7 +16,7 @@
 
 #ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
 #   include "mbed-drivers/mbed.h"
-#else 
+#else
 #   include "mbed.h"
 #endif
 
@@ -255,16 +255,54 @@ void app_start(int, char *[])
 
 #if !defined(YOTTA_CFG_MBED_OS)
 
+void scheduleBleEventsProcessing(BLE::OnEventsToProcessCallbackContext* context) {
+    eventQueue.post(&BLE::processEvents, &context->ble);
+    }
+
 int main() {
+
+    BLE &ble = BLE::Instance();
+    ble.onEventsToProcess(scheduleBleEventsProcessing);
 
     app_start(0, NULL);
 
     while (true) {
        eventQueue.dispatch();
-       BLE::Instance().waitForEvent();
     }
 
     return 0;
 }
+
+// *WARNING* HACK
+// avoid unecessary code to be pulled in,
+// should be fixed by mbed-os latter
+extern "C" {
+
+#if defined(TOOLCHAIN_GCC_ARM) || defined(TOOLCHAIN_GCC_CR)
+void exit(int) {
+    while(true) {
+    }
+}
+#endif
+
+int __aeabi_atexit(void *object, void (*dtor)(void* /*this*/), void *handle) {
+    return 0;
+}
+
+int __cxa_atexit(void (*dtor)(void* /*this*/), void *object, void *handle) {
+    return 0;
+}
+
+void __register_exitproc() {
+}
+
+void __call_exitprocs(int, void *f) {
+}
+
+void __cxa_finalize(void *handle) {
+}
+
+}
+
 
 #endif
