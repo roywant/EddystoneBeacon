@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include "../EntropySource.h"
-#define TARGET_NRF51822
-#ifdef TARGET_NRF51822 /* Persistent storage supported on nrf51 platforms */
+
+#if defined(TARGET_NRF51822) || defined(TARGET_MCU_NRF52832) /* Persistent storage supported on nrf51 platforms */
 
 #include "nrf_soc.h"
 #include "nrf_error.h"
@@ -28,7 +28,7 @@
 int eddystoneEntropyPoll(void *data, unsigned char *output, size_t len, size_t *olen)
 {
     uint8_t bytes_available = 0;
-    
+
     // get the number of random bytes available
     if (sd_rand_application_bytes_available_get(&bytes_available) != NRF_SUCCESS) {
         return MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
@@ -51,18 +51,17 @@ int eddystoneEntropyPoll(void *data, unsigned char *output, size_t len, size_t *
     return 0;
 }
 
+int eddystoneRegisterEntropySource(	mbedtls_entropy_context* ctx) {
+    uint8_t pool_capacity;
+    sd_rand_application_pool_capacity_get(&pool_capacity);
 
-int eddystoneRegisterEntropySource(	mbedtls_entropy_context* ctx) { 
-  uint8_t pool_capacity;
-  sd_rand_application_pool_capacity_get(&pool_capacity);
-
-  return mbedtls_entropy_add_source(
-    ctx, 
-    eddystoneEntropyPoll, // entropy source function
-    NULL,                 // entropy source data, NULL in this case
-    pool_capacity,        //  minimum number of bytes the entropy pool should wait on from this callback before releasing entropy
-    MBEDTLS_ENTROPY_SOURCE_STRONG
-  );
+    return mbedtls_entropy_add_source(
+        ctx,
+        eddystoneEntropyPoll, // entropy source function
+        NULL,                 // entropy source data, NULL in this case
+        pool_capacity,        //  minimum number of bytes the entropy pool should wait on from this callback before releasing entropy
+        MBEDTLS_ENTROPY_SOURCE_STRONG
+    );
 }
 
 #endif /* #ifdef TARGET_NRF51822 */

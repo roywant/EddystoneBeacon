@@ -29,7 +29,9 @@
 #include "nrf_soc.h"
 #include "nrf_sdm.h"
 #include "nrf_nvic.h"
-
+extern "C" {
+#include "softdevice_handler.h"
+}
 namespace util {
 
 /** RAII object for disabling, then restoring, interrupt state
@@ -63,8 +65,7 @@ public:
         } else {
           // otherwise, use soft device routine if softdevice is running or disable
           // the irq if softdevice is not running
-          uint8_t sd_enabled;
-          if((sd_softdevice_is_enabled(&sd_enabled) == NRF_SUCCESS) && sd_enabled == 1) {
+          if(softdevice_handler_isEnabled()) {
             _use_softdevice_routine = true;
             sd_nvic_critical_region_enter(&_sd_state);
           } else {

@@ -15,7 +15,7 @@
  */
 #include "EntropySource.h"
 
-#ifndef TARGET_NRF51822 /* Persistent storage supported on nrf51 platforms */
+#if !defined(TARGET_NRF51822) && !defined(TARGET_MCU_NRF52832) /* Persistent storage supported on nrf51 platforms */
     /**
      * When not using an nRF51-based target then entropy source is currently unimplemented.
      */
@@ -23,5 +23,11 @@
 
     int eddystoneRegisterEntropySource(	mbedtls_entropy_context* ctx) { 
       return 1;
+    }
+
+    int eddystoneEntropyPoll( void *data,
+                        unsigned char *output, size_t len, size_t *olen )
+    {
+        return( 1 );
     }
 #endif /* #ifdef TARGET_NRF51822 */
