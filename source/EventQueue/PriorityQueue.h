@@ -299,6 +299,7 @@ public:
 				--used_nodes_count;
 				return true;
 			}
+			current = current->next;
 		}
 		return false;
 	}
