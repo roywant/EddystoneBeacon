@@ -46,8 +46,8 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     eventQueue(evQ),
     nextEidSlot(0)
 {
-    printf("1st Boot: "); 
-    printf(BUILD_VERSION_STR);
+    LOG(("1st Boot: ")); 
+    LOG((BUILD_VERSION_STR));
     if (advConfigIntervalIn != 0) {
         if (advConfigIntervalIn < ble.gap().getMinAdvertisingInterval()) {
             advConfigInterval = ble.gap().getMinAdvertisingInterval();
@@ -95,8 +95,8 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     eventQueue(evQ),
     nextEidSlot(0)
 {
-    printf("2nd (>=) Boot: ");
-    printf(BUILD_VERSION_STR);
+    LOG(("2nd (>=) Boot: "));
+    LOG((BUILD_VERSION_STR));
     memcpy(capabilities, paramsIn.capabilities, sizeof(Capability_t));
     activeSlot          = paramsIn.activeSlot;
     memcpy(radioTxPowerLevels, radioTxPowerLevelsIn, sizeof(PowerLevels_t));
