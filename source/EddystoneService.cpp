@@ -113,6 +113,8 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     memcpy(slotFrameTypes, paramsIn.slotFrameTypes, sizeof(SlotFrameTypes_t));
     memcpy(slotEidRotationPeriodExps, paramsIn.slotEidRotationPeriodExps, sizeof(SlotEidRotationPeriodExps_t));
     memcpy(slotEidIdentityKeys, paramsIn.slotEidIdentityKeys, sizeof(SlotEidIdentityKeys_t));
+    // Zero next EID slot rotation times to enforce rotation of each slot on restart
+    memset(slotEidNextRotationTimes, 0, sizeof(SlotEidNextRotationTimes_t)); 
     remainConnectable   = paramsIn.remainConnectable;
 
     if (advConfigIntervalIn != 0) {
