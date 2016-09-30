@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#ifdef TARGET_NRF51822 /* Persistent storage supported on nrf51 platforms */
+#if defined(TARGET_NRF51822) || defined(TARGET_NRF52832) /* Persistent storage supported on nrf51 platforms */
 
 extern "C" {
     #include "pstorage.h"
