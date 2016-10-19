@@ -114,4 +114,26 @@ void saveEddystoneServiceConfigParams(const EddystoneService::EddystoneParams_t 
     }
 }
 
+/* Saves only the TimeParams (a subset of Config Params) for speed/power efficiency
+ * Platform-specific implementation for persistence on the nRF5x. Based on the
+ * pstorage module provided by the Nordic SDK. */
+void saveEddystoneTimeParams(const TimeParams_t *timeP)
+{
+    // Copy the time params object to the main datastructure
+    memcpy(&persistentParams.params.timeParams, timeP, sizeof(TimeParams_t));
+    // Test if this is the first pstorage update, or an update
+    if (persistentParams.persistenceSignature != PersistentParams_t::MAGIC) {
+        persistentParams.persistenceSignature = PersistentParams_t::MAGIC;
+        pstorage_store(&pstorageHandle,
+                       reinterpret_cast<uint8_t *>(&persistentParams),
+                       sizeof(TimeParams_t),
+                       offsetof(PersistentParams_t, params.timeParams) /* offset */);  
+    } else {
+        pstorage_update(&pstorageHandle,
+                        reinterpret_cast<uint8_t *>(&persistentParams),
+                        sizeof(TimeParams_t),
+                        offsetof(PersistentParams_t, params.timeParams) /* offset */); 
+    }
+}
+
 #endif /* #ifdef TARGET_NRF51822 */
