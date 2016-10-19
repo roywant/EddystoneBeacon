@@ -22,6 +22,7 @@ extern "C" {
 
 #include "nrf_error.h"
 #include "../../EddystoneService.h"
+#include <cstddef>
 
 /**
  * Nordic specific structure used to store params persistently.
