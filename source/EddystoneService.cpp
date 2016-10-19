@@ -732,7 +732,7 @@ void EddystoneService::writeVarLengthDataAuthorizationCallback(GattWriteAuthCall
 {
    if (lockState == LOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_WRITE_NOT_PERMITTED;
-    } else if ((authParams->len > 34) || (authParams->len = 0)) {  
+    } else if (authParams->len > 34) {  
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_INVALID_ATT_VAL_LENGTH;
     } else {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_SUCCESS;
