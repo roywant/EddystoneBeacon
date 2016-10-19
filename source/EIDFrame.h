@@ -48,7 +48,7 @@ public:
     EIDFrame();
     
     /**
-     * Clear frame (intervally indicated by length = 0 )
+     * Clear frame (internally represented by length = 0 )
      */
     void clearFrame(uint8_t* frame);
     

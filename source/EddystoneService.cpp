@@ -15,6 +15,7 @@
  */
 
 #include "EddystoneService.h"
+#include "PersistentStorageHelper/ConfigParamsPersistence.h"
 #include "EntropySource/EntropySource.h"
 
 /* Use define zero for production, 1 for testing to allow connection at any time */
@@ -23,7 +24,7 @@
 const char * const EddystoneService::slotDefaultUrls[] = EDDYSTONE_DEFAULT_SLOT_URLS;
 
 // Static timer used as time since boot
-Timer        EddystoneService::timeSinceBootTimer;
+Timer           EddystoneService::timeSinceBootTimer;
 
 /*
  * CONSTRUCTOR #1 Used on 1st boot (after reflash)
@@ -61,17 +62,13 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
     memcpy(advTxPowerLevels,   advTxPowerLevelsIn,   sizeof(PowerLevels_t));
 
     // 1st Boot so reset everything to factory values
+    LOG(("1st BOOT: "));
     doFactoryReset();  // includes genBeaconKeys
     
-    LOG(("After FactoryReset in 1st Boot Init: genBeaconKeyRC=%d\r\n", genBeaconKeyRC));
-    /* TODO: Note that this timer is started from the time EddystoneService
-     * is initialised and NOT from when the device is booted.
-     */
-    timeSinceBootTimer.start();
+    LOG(("After FactoryReset: 1st Boot Init: genBeaconKeyRC=%d\r\n", genBeaconKeyRC));
 
     /* Set the device name at startup */
     ble.gap().setDeviceName(reinterpret_cast<const uint8_t *>(deviceName));
-
 }
 
 /*
@@ -97,6 +94,17 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
 {
     LOG(("2nd (>=) Boot: "));
     LOG((BUILD_VERSION_STR));
+    // Init time Params
+    LOG(("Init Params\r\n"));
+    timeSinceBootTimer.start();
+    memcpy(&timeParams, &(paramsIn.timeParams), sizeof(TimeParams_t));
+    LOG(("2nd Boot: Time:"));
+    LOG(("PriorBoots=%lu, SinceBoot=%lu\r\n", timeParams.timeInPriorBoots, timeParams.timeSinceLastBoot));
+    timeParams.timeInPriorBoots = timeParams.timeInPriorBoots + timeParams.timeSinceLastBoot;
+    timeParams.timeSinceLastBoot =  getTimeSinceLastBootMs() / 1000;
+    nvmSaveTimeParams();
+    
+    // Init gneeral params
     memcpy(capabilities, paramsIn.capabilities, sizeof(Capability_t));
     activeSlot          = paramsIn.activeSlot;
     memcpy(radioTxPowerLevels, radioTxPowerLevelsIn, sizeof(PowerLevels_t));
@@ -135,19 +143,13 @@ EddystoneService::EddystoneService(BLE                 &bleIn,
         uint8_t* frame = slotToFrame(slot);
         switch (slotFrameTypes[slot]) {
             case EDDYSTONE_FRAME_EID:
-               eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
-               eidFrame.setAdvTxPower(frame, slotAdvTxPowerLevels[slot]);
+               nextEidSlot = slot;
+               eidFrame.setData(frame, slotAdvTxPowerLevels[slot], nullEid);
+               eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], getTimeSinceFirstBootSecs());
                break;
-            default: ;
         }
     }
-
-
-    /* TODO: Note that this timer is started from the time EddystoneService
-     * is initialised and NOT from when the device is booted.
-     */
-    timeSinceBootTimer.start();
-
+    
     /* Set the device name at startup */
     ble.gap().setDeviceName(reinterpret_cast<const uint8_t *>(deviceName));
 }
@@ -168,6 +170,12 @@ void EddystoneService::genEIDBeaconKeys(void) {
  */
 void EddystoneService::doFactoryReset(void)
 {    
+    // Init Time tracking
+    timeSinceBootTimer.start();
+    timeParams.timeInPriorBoots = 0;
+    timeParams.timeSinceLastBoot = getTimeSinceLastBootMs() / 1000;
+    nvmSaveTimeParams();
+    // Init callbacks
     memset(slotCallbackHandles, 0, sizeof(SlotCallbackHandles_t));
     radioManagerCallbackHandle = NULL;
     memcpy(capabilities, CAPABILITIES_DEFAULT, CAP_HDR_LEN);
@@ -221,16 +229,17 @@ void EddystoneService::doFactoryReset(void)
                eidSlot = getEidSlot();
                if (eidSlot != NO_EID_SLOT_SET) {
                    LOG(("EID slot Set in FactoryReset\r\n"));
-                   tlmFrame.encryptData(frame, slotEidIdentityKeys[eidSlot], slotEidRotationPeriodExps[eidSlot], timeSinceBootTimer.read_ms() / 1000);
+                   tlmFrame.encryptData(frame, slotEidIdentityKeys[eidSlot], slotEidRotationPeriodExps[eidSlot], getTimeSinceFirstBootSecs());
                }
                break;
             case EDDYSTONE_FRAME_EID:
                nextEidSlot = slot;
-               eidFrame.setData(frame, slotAdvTxPowerLevels[slot], reinterpret_cast<const uint8_t*>(allSlotsDefaultEid));
-               eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
+               eidFrame.setData(frame, slotAdvTxPowerLevels[slot], nullEid);
+               eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], getTimeSinceFirstBootSecs());
                break;
         }
     }
+
 #ifdef DONT_REMAIN_CONNECTABLE
     remainConnectable = REMAIN_CONNECTABLE_UNSET;  
 #else
@@ -325,6 +334,9 @@ ble_error_t EddystoneService::setCompleteDeviceName(const char *deviceNameIn)
  */
 void EddystoneService::getEddystoneParams(EddystoneParams_t &params)
 {
+    // Time
+    timeParams.timeSinceLastBoot =  getTimeSinceLastBootMs() / 1000;
+    memcpy(&(params.timeParams),     &timeParams,         sizeof(TimeParams_t));
     // Capabilities
     memcpy(params.capabilities,     capabilities,           sizeof(Capability_t));
     // Active Slot
@@ -355,7 +367,7 @@ void EddystoneService::swapAdvertisedFrame(int slot)
 {
     uint8_t* frame = slotToFrame(slot);
     uint8_t frameType = slotFrameTypes[slot];
-    uint32_t timeSecs = timeSinceBootTimer.read_ms() / 1000;
+    uint32_t timeSecs = getTimeSinceFirstBootSecs();
     switch (frameType) {
         case EDDYSTONE_FRAME_UID:
             updateAdvertisementPacket(uidFrame.getAdvFrame(frame), uidFrame.getAdvFrameLength(frame));
@@ -372,7 +384,10 @@ void EddystoneService::swapAdvertisedFrame(int slot)
             if (timeSecs >= slotEidNextRotationTimes[slot]) {
                 eidFrame.update(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSecs);
                 slotEidNextRotationTimes[slot] = timeSecs + (1 << slotEidRotationPeriodExps[slot]);
-                setRandomMacAddress(); // selects a new MAC address so the beacon is not trackable 
+                // select a new random MAC address so the beacon is not trackable 
+                setRandomMacAddress(); 
+                // Store in NVM in case the beacon loses power
+                nvmSaveTimeParams(); 
                 LOG(("EID ROTATED: Time=%lu\r\n", timeSecs));
             }
             updateAdvertisementPacket(eidFrame.getAdvFrame(frame), eidFrame.getAdvFrameLength(frame));
@@ -399,13 +414,13 @@ void EddystoneService::updateRawTLMFrame(uint8_t* frame)
     if (tlmBatteryVoltageCallback != NULL) {
         tlmFrame.updateBatteryVoltage((*tlmBatteryVoltageCallback)(tlmFrame.getBatteryVoltage()));
     }
-    tlmFrame.updateTimeSinceBoot(timeSinceBootTimer.read_ms());
+    tlmFrame.updateTimeSinceLastBoot(getTimeSinceLastBootMs());
     tlmFrame.setData(frame);
     int slot = getEidSlot();
     LOG(("TLMHelper Method slot=%d\r\n", slot));
     if (slot != NO_EID_SLOT_SET) {
         LOG(("TLMHelper: Before Encrypting TLM\r\n"));
-        tlmFrame.encryptData(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
+        tlmFrame.encryptData(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], getTimeSinceFirstBootSecs());
         LOG(("TLMHelper: Before Encrypting TLM\r\n"));
     }
 }
@@ -436,7 +451,7 @@ void EddystoneService::enqueueFrame(int slot)
 void EddystoneService::manageRadio(void)
 {
     uint8_t slot;
-    uint32_t  startTimeManageRadio = timeSinceBootTimer.read_ms();
+    uint64_t  startTimeManageRadio = getTimeSinceLastBootMs();
 
     /* Signal that there is currently no callback posted */
     radioManagerCallbackHandle = NULL;
@@ -457,7 +472,7 @@ void EddystoneService::manageRadio(void)
          * swap in this frame. */
         radioManagerCallbackHandle = eventQueue.post_in(
             &EddystoneService::manageRadio, this,
-            ble.gap().getMinNonConnectableAdvertisingInterval() - (timeSinceBootTimer.read_ms() - startTimeManageRadio) /* ms */
+            ble.gap().getMinNonConnectableAdvertisingInterval() - (getTimeSinceLastBootMs() - startTimeManageRadio) /* ms */
         );
     } else if (ble.gap().getState().advertising) {
         /* Nothing else to advertise, stop advertising and do not schedule any callbacks */
@@ -673,11 +688,27 @@ void EddystoneService::setupEddystoneConfigScanResponse(void)
         reinterpret_cast<const uint8_t *>(deviceName),
         strlen(deviceName)
     );
+#ifdef INCLUDE_CONFIG_URL 
+    uint8_t configFrame[URLFrame::ENCODED_BUF_SIZE];
+    int encodedUrlLen = URLFrame::encodeURL(configFrame + CONFIG_FRAME_HDR_LEN, EDDYSTONE_CONFIG_URL);
+    uint8_t advPower = advTxPowerLevels[sizeof(PowerLevels_t)-1] & 0xFF;
+    uint8_t configFrameHdr[CONFIG_FRAME_HDR_LEN] = {0, 0, URLFrame::FRAME_TYPE_URL, advPower};
+    // File in the Eddystone Service UUID in the HDR
+    memcpy(configFrameHdr, EDDYSTONE_UUID, sizeof(EDDYSTONE_UUID));
+    // Copy the HDR to the config frame 
+    memcpy(configFrame, configFrameHdr, CONFIG_FRAME_HDR_LEN);
     ble.gap().accumulateScanResponse(
-        GapAdvertisingData::TX_POWER_LEVEL,
-        reinterpret_cast<uint8_t *>(&advTxPowerLevels[sizeof(PowerLevels_t)-1]),
-        sizeof(uint8_t)
+        GapAdvertisingData::SERVICE_DATA,
+        configFrame,
+        CONFIG_FRAME_HDR_LEN + encodedUrlLen
     );
+#else
+    ble.gap().accumulateScanResponse(
+    GapAdvertisingData::TX_POWER_LEVEL,
+    reinterpret_cast<uint8_t *>(&advTxPowerLevels[sizeof(PowerLevels_t)-1]),
+    sizeof(uint8_t)
+    );
+#endif
 }
 
 /* WRITE AUTHORIZATION */
@@ -701,7 +732,7 @@ void EddystoneService::writeVarLengthDataAuthorizationCallback(GattWriteAuthCall
 {
    if (lockState == LOCKED) {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_WRITE_NOT_PERMITTED;
-    } else if (authParams->len > 34) {  
+    } else if ((authParams->len > 34) || (authParams->len = 0)) {  
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_ATTERR_INVALID_ATT_VAL_LENGTH;
     } else {
         authParams->authorizationReply = AUTH_CALLBACK_REPLY_SUCCESS;
@@ -837,7 +868,7 @@ void EddystoneService::readDataAuthorizationCallback(GattReadAuthCallbackParams 
                 buf[0] = EIDFrame::FRAME_TYPE_EID;
                 buf[1] = slotEidRotationPeriodExps[activeSlot];
                 // Add time as a big endian 32 bit number
-                uint32_t timeSecs = timeSinceBootTimer.read_ms() / 1000;
+                uint32_t timeSecs = getTimeSinceFirstBootSecs();
                 buf[2] = (timeSecs  >> 24) & 0xff;
                 buf[3] = (timeSecs >> 16) & 0xff;
                 buf[4] = (timeSecs >> 8) & 0xff;
@@ -1029,8 +1060,8 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
                     int slot = getEidSlot();
                     LOG(("WRITE: Testing if TLM or ETLM=%d\r\n", slot));
                     if (slot != NO_EID_SLOT_SET) {
-                        LOG(("WRITE: Configuring ETLM Slot time=%d\r\n", timeSinceBootTimer.read_ms() / 1000));
-                        tlmFrame.encryptData(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], timeSinceBootTimer.read_ms() / 1000);
+                        LOG(("WRITE: Configuring ETLM Slot time(S)=%lu\r\n", getTimeSinceFirstBootSecs() ));
+                        tlmFrame.encryptData(frame, slotEidIdentityKeys[slot], slotEidRotationPeriodExps[slot], getTimeSinceFirstBootSecs() );
                     }
                     slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_TLM;
                 }
@@ -1071,8 +1102,10 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
                 slotFrameTypes[activeSlot] = EDDYSTONE_FRAME_EID;
                 nextEidSlot = activeSlot; // This was the last one updated
                 LOG(("update Eid Frame\r\n"));
-                // Generate ADV frame packet from EidIdentity Key
-                eidFrame.update(frame, slotEidIdentityKeys[activeSlot], slotEidRotationPeriodExps[activeSlot], timeSinceBootTimer.read_ms() / 1000);
+                // Generate EID ADV frame packet 
+                eidFrame.setData(frame, advTxPower, nullEid);
+                // Fill in the correct EID Value from the Identity Key/exp/clock
+                eidFrame.update(frame, slotEidIdentityKeys[activeSlot], slotEidRotationPeriodExps[activeSlot], getTimeSinceFirstBootSecs() );
                 LOG(("END update Eid Frame\r\n"));
                 break;
             default:
@@ -1164,7 +1197,7 @@ void EddystoneService::generateRandom(uint8_t ain[], int size) {
 void EddystoneService::generateRandom(uint8_t ain[], int size) {
     int i;
     // Random seed based on boot time in milliseconds
-    srand(timeSinceBootTimer.read_ms());
+    srand(getTimeSinceLastBootMs());
     for (i = 0; i < size; i++) {
         ain[i] = rand() % 256;
     }
@@ -1233,10 +1266,51 @@ int EddystoneService::getEidSlot(void) {
     }
     return eidSlot;
 }
-    
 
+/**
+ * Time : Stable Storage
+ */
+
+/**
+ * Returns the time since FIRST Boot (Time in Prior Boots + Time since Last Boot) in SECONDS
+ */
+uint32_t EddystoneService::getTimeSinceFirstBootSecs(void) {
+    timeParams.timeSinceLastBoot = getTimeSinceLastBootMs() / 1000;
+    uint32_t totalTimeSinceFirstBoot = timeParams.timeSinceLastBoot + timeParams.timeInPriorBoots;
+    // Timer Overflow condition = 136 years (32 bits in seconds) so no need for wrap check
+    return totalTimeSinceFirstBoot;
+}
+
+/**
+ * Returns the time since last boot in MILLISECONDS
+ * NOTE: This solution is needed as a stopgap until the Timer API is updated to 64-bit
+ */
+uint64_t EddystoneService::getTimeSinceLastBootMs(void) {
+    static uint64_t time64bit = 0;
+    time64bit += timeSinceBootTimer.read_ms();
+    timeSinceBootTimer.reset();
+    return time64bit;
+}
+
+/**
+ * Store only the time params in Pstorage(e.g. NVM), to maintain time between boots
+ * NOTE: Platform-specific implementation for persistence on the nRF5x. Based on the
+ * pstorage module provided by the Nordic SDK. 
+ */
+void EddystoneService::nvmSaveTimeParams(void) {
+    LOG(("Time NVM: "));
+    LOG(("PriorBoots=%lu, SinceBoot=%lu\r\n", timeParams.timeInPriorBoots, timeParams.timeSinceLastBoot));
+    saveEddystoneTimeParams(&timeParams);
+}
+
+/*
+ * Establish constant arrays
+ */
 const uint8_t EddystoneService::slotDefaultUids[MAX_ADV_SLOTS][16] = EDDYSTONE_DEFAULT_SLOT_UIDS;
 
 const uint8_t EddystoneService::slotDefaultEidIdentityKeys[MAX_ADV_SLOTS][16] = EDDYSTONE_DEFAULT_SLOT_EID_IDENTITY_KEYS;
 
-const uint8_t EddystoneService::allSlotsDefaultEid[8] = {0,0,0,0,0,0,0,0};
+const uint8_t EddystoneService::nullEid[8] = {0,0,0,0,0,0,0,0};
+
+
+

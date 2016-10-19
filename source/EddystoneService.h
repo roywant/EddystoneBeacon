@@ -30,6 +30,7 @@
 #include "mbedtls/aes.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
+// #include "PersistentStorageHelper/ConfigParamsPersistence.h"
 
 #ifdef YOTTA_CFG_MBED_OS
     #include "mbed-drivers/mbed.h"
@@ -41,6 +42,7 @@
 
 #include "stdio.h"
 #include "Eddystone_config.h"
+#include "pstorage_platform.h"
 
 /**
  * This class implements the Eddystone-URL Config Service and the Eddystone
@@ -106,6 +108,10 @@ public:
      */
     struct EddystoneParams_t {
         /**
+         * 
+         */
+        TimeParams_t            timeParams;
+        /**
          * A buffer describing the capabilities of the beacon
          */
         Capability_t            capabilities;
@@ -165,21 +171,6 @@ public:
          * challenge/response unlock protocol
          */
         Lock_t                  challenge;
-
-        /**
-         * EID: An array holding the 256-bit private Ecdh Key (big endian)
-         */
-        //PrivateEcdhKey_t        privateEcdhKey;
-
-        /**
-         * EID: An array holding the 256-bit public Ecdh Key (big endian)
-         */
-        //PublicEcdhKey_t         publicEcdhKey;
-
-        /**
-         * EID: An array holding the slot next rotation times
-         */
-        //SlotEidNextRotationTimes_t      slotEidNextRotationTimes;
 
         /**
          * EID: An array holding the slot rotation period exponents
@@ -487,8 +478,9 @@ public:
     /**
      * Timer that keeps track of the time since boot.
      */
-
     static Timer        timeSinceBootTimer;
+    
+    //static TimeParams_t pstorageTimeParams;
     
 private:
 
@@ -499,6 +491,8 @@ private:
     static const uint8_t REMAIN_CONNECTABLE_SET = 0x01;
           
     static const uint8_t REMAIN_CONNECTABLE_UNSET = 0x00;
+    
+    static const uint8_t CONFIG_FRAME_HDR_LEN = 4;
      
     /**
      * Helper funtion that will be registered as an initialization complete
@@ -841,6 +835,27 @@ private:
      * @return slot number (and if not, returns NO_EID_SLOT_SET = -1)
      */
     int getEidSlot(void);
+    
+    /**
+     * Returns the current time in Secs (Prior Time + Time since boot)
+     *
+     * @return time
+     */
+    uint32_t getTimeSinceFirstBootSecs(void);
+    
+
+    /**
+     * Returns the time since boot in Milliseconds
+     *
+     * @return time
+     */
+    uint64_t getTimeSinceLastBootMs(void);
+    
+    /**
+     * Saves only the Time Params in pStorage (a subset of all the Eddsytone Params)
+     * This is more efficient than periodically saving all state (its just 8 bytes)
+     */
+    void nvmSaveTimeParams(void); 
 
     /**
      * BLE instance that EddystoneService will operate on.
@@ -857,7 +872,15 @@ private:
      */
     uint8_t                                                         operationMode;
     
+    /**
+     * Parameter to consistently record the return code when generating Beacon Keys
+     */
     int                                                             genBeaconKeyRC;
+    
+    /**
+     * Keeps track of time in prior boots and current/last boot
+     */
+    TimeParams_t                                                    timeParams;
 
     /**
      * GATT Service Variables
@@ -1154,7 +1177,7 @@ private:
     /**
      * Defines default EID payload before being updated with the first EID rotation value
      */
-    static const uint8_t allSlotsDefaultEid[8];
+    static const uint8_t nullEid[8];
 
     /**
      * Reference to the event queue used to post tasks

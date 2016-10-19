@@ -131,12 +131,12 @@ public:
     uint8_t getAdvFrameLength(uint8_t* rawFrame);
 
     /**
-     * Update the time since boot.
+     * Update the time since last boot.
      *
      * @param[in] nowInMillis
      *              The time since boot in milliseconds.
      */
-    void updateTimeSinceBoot(uint32_t nowInMillis);
+    void updateTimeSinceLastBoot(uint32_t nowInMillis);
 
     /**
      * Update the Battery Voltage.
