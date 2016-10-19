@@ -25,7 +25,7 @@
 // #define MinewTech
 
 // Version printed out on virtual terminal (independent of logging flag below)
-#define BUILD_VERSION_STR "EID Version 1.00 2016-08-31:20:00\r\n"
+#define BUILD_VERSION_STR "EID Version 1.00 2016-10-19:15:30\r\n"
 
 /** 
  * DEBUG OPTIONS
@@ -34,6 +34,7 @@
 #define GEN_BEACON_KEYS_AT_INIT
 #define HARDWARE_RANDOM_NUM_GENERATOR
 // #define EID_RANDOM_MAC
+// #define INCLUDE_CONFIG_URL
 // #define DONT_REMAIN_CONNECTABLE
 // #define NO_4SEC_START_DELAY
 // #define NO_LOGGING
@@ -66,8 +67,15 @@
 /*
  * BEACON BEHAVIOR DEFINED BELOW
  */
+
+/**
+ * Note: If the CONFIG_URL is enabled (DEFINE above)
+ *    The size of the DEVICE_NAME + Encoded Length of the CONFIG_URL
+ *    must be LESS THAN OR EQUAL to 23
+ */
+#define EDDYSTONE_CONFIG_URL "http://cf.physical-web.org"
  
-#define EDDYSTONE_CFG_DEFAULT_DEVICE_NAME "ES G-EID"
+#define EDDYSTONE_CFG_DEFAULT_DEVICE_NAME "ES EID"
 
 #define EDDYSTONE_DEFAULT_MAX_ADV_SLOTS 3
 

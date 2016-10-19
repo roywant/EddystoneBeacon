@@ -96,7 +96,7 @@ void EIDFrame::update(uint8_t* rawFrame, uint8_t* eidIdentityKey, uint8_t rotati
     
     // Compute the EID 
     uint8_t eid[16];
-    uint32_t scaledTime = (timeSecs >> rotationPeriodExp) << rotationPeriodExp; 
+    uint32_t scaledTime = (timeSecs >> rotationPeriodExp) << rotationPeriodExp;
     ts[0] = (scaledTime  >> 24) & 0xff;
     ts[1] = (scaledTime >> 16) & 0xff;
     ts[2] = (scaledTime >> 8) & 0xff;
