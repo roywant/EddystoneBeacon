@@ -194,7 +194,7 @@ static void bleInitComplete(BLE::InitializationCompleteCallbackContext* initCont
     ble.gap().onConnection(connectionCallback);
 
     EddystoneService::EddystoneParams_t params;
-    
+
     wait_ms(35); // Allow the RNG number generator to collect data
 
     // Determine if booting directly after re-Flash or not
@@ -268,6 +268,7 @@ int main() {
 
     while (true) {
        eventQueue.dispatch();
+       sleep();
     }
 
     return 0;
