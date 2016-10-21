@@ -232,9 +232,9 @@ void app_start(int, char *[])
 
 #ifdef NO_LOGGING
     /* Tell standard C library to not allocate large buffers for these streams */
-    setbuf(stdout, NULL);
-    setbuf(stderr, NULL);
-    setbuf(stdin, NULL);
+    // setbuf(stdout, NULL);
+    // setbuf(stderr, NULL);
+    // setbuf(stdin, NULL);
 #endif
 
 #ifndef NO_4SEC_START_DELAY
@@ -272,37 +272,6 @@ int main() {
     }
 
     return 0;
-}
-
-// *WARNING* HACK
-// avoid unecessary code to be pulled in,
-// should be fixed by mbed-os latter
-extern "C" {
-
-#if defined(TOOLCHAIN_GCC_ARM) || defined(TOOLCHAIN_GCC_CR)
-void exit(int) {
-    while(true) {
-    }
-}
-#endif
-
-int __aeabi_atexit(void *object, void (*dtor)(void* /*this*/), void *handle) {
-    return 0;
-}
-
-int __cxa_atexit(void (*dtor)(void* /*this*/), void *object, void *handle) {
-    return 0;
-}
-
-void __register_exitproc() {
-}
-
-void __call_exitprocs(int, void *f) {
-}
-
-void __cxa_finalize(void *handle) {
-}
-
 }
 
 
