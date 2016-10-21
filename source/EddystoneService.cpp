@@ -1131,7 +1131,7 @@ void EddystoneService::onDataWrittenCallback(const GattWriteCallbackParams *writ
 
 void EddystoneService::setFrameTxPower(uint8_t slot, int8_t advTxPower) {
     uint8_t* frame = slotToFrame(slot);
-    uint8_t frameType = slotFrameTypes[slot];
+    uint8_t frameType = slotFrameTypes[slot] << 4; // Converting the enum to an actual frame type
     switch (frameType) {
         case UIDFrame::FRAME_TYPE_UID:
            uidFrame.setAdvTxPower(frame, advTxPower);
