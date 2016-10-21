@@ -229,5 +229,11 @@ typedef uint8_t UIDInstanceID_t[UID_INSTANCEID_SIZE];
  */
 typedef uint16_t (*TlmUpdateCallback_t) (uint16_t);
 
+// END OF PROTOTYPES
+
+typedef struct {
+    uint32_t timeInPriorBoots;
+    uint32_t timeSinceLastBoot;
+} TimeParams_t;
 
 #endif /* __EDDYSTONETYPES_H__ */

@@ -42,4 +42,14 @@
         /* Do nothing... */
         return;
     }
+
+    void saveEddystoneTimeParams(const TimeParams_t *timeP)
+    {
+        /* Avoid compiler warnings */
+        (void) timeP;
+
+        /* Do nothing... */
+        return;
+    }
+
 #endif /* #ifdef TARGET_NRF51822 */

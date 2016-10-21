@@ -138,7 +138,7 @@ uint8_t TLMFrame::getAdvFrameLength(uint8_t* rawFrame){
     return rawFrame[FRAME_LEN_OFFSET];
 }
 
-void TLMFrame::updateTimeSinceBoot(uint32_t nowInMillis)
+void TLMFrame::updateTimeSinceLastBoot(uint32_t nowInMillis)
 {
     // Measured in tenths of a second
     tlmTimeSinceBoot      += (nowInMillis - lastTimeSinceBootRead) / 100;

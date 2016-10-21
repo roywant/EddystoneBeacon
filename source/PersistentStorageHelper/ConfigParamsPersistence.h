@@ -50,4 +50,18 @@ bool loadEddystoneServiceConfigParams(EddystoneService::EddystoneParams_t *param
  */
 void saveEddystoneServiceConfigParams(const EddystoneService::EddystoneParams_t *paramsP);
 
+/**
+ * Generic API to store the Eddystone TimeParams (a subset of Config Params) for 
+ * speed/power efficiency.
+ *
+ * @param[in,out] timeP
+ *                    The params to be saved; persistenceSignature member gets
+ *                    updated if persistence is successful.
+ *
+ * @note The save operation may be asynchronous. It may be a short while before
+ *       the request takes affect. Reading back saved configParams may not yield
+ *       correct behaviour if attempted soon after a store.
+ */
+void saveEddystoneTimeParams(const TimeParams_t *timeP);
+
 #endif /* #ifndef __BLE_CONFIG_PARAMS_PERSISTENCE_H__*/
