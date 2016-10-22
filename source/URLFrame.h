@@ -141,6 +141,23 @@ public:
     void setAdvTxPower(uint8_t* rawFrame, int8_t advTxPower);
 
     /**
+     * Helper function that encodes a URL null terminated string into the HTTP
+     * URL Encoding required in Eddystone-URL frames. Refer to
+     * https://github.com/google/eddystone/blob/master/eddystone-url/README.md#eddystone-url-http-url-encoding.
+     *
+     * @param[in] encodedUrlData
+     *              The encoded bytes of the URL
+     * @param[in] rawUrl
+     *              The null terminated string containing a URL to encode.
+     * @return Length of the encodedData in bytes
+     */
+    static uint8_t encodeURL(uint8_t* encodedUrlData, const char* rawUrl);
+
+    /**
+     * The max size (in bytes) of an Eddystone-URL frame.
+     */
+    static const uint8_t ENCODED_BUF_SIZE = 32;
+    /**
      *  The byte ID of an Eddystone-URL frame.
      */
     static const uint8_t FRAME_TYPE_URL     = 0x10;
@@ -155,27 +172,9 @@ private:
     static const uint8_t URL_TXPOWER_OFFSET = 4;
 
     /**
-     * Helper function that encodes a URL null terminated string into the HTTP
-     * URL Encoding required in Eddystone-URL frames. Refer to
-     * https://github.com/google/eddystone/blob/master/eddystone-url/README.md#eddystone-url-http-url-encoding.
-     *
-     * @param[in] encodedUrlData
-     *              The encoded bytes of the URL
-     * @param[in] rawUrl
-     *              The null terminated string containing a URL to encode.
-     * @return Length of the encodedData in bytes
-     */
-    uint8_t encodeURL(uint8_t* encodedUrlData, const char* rawUrl);
-
-    /**
      * The minimum size (in bytes) of an Eddystone-URL frame.
      */
     static const uint8_t FRAME_MIN_SIZE_URL = 2;
-    
-    /**
-     * The max size (in bytes) of an Eddystone-URL frame.
-     */
-    static const uint8_t ENCODED_BUF_SIZE = 32;
     
     /**
     * Offset for playload in a rawFrame UID
