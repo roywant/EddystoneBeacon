@@ -104,7 +104,11 @@ uint8_t URLFrame::encodeURL(uint8_t* encodedUrl, const char *rawUrl)
     };
     const size_t NUM_SUFFIXES = sizeof(suffixes) / sizeof(char *);
 
-    memset(encodedUrl, 0, ENCODED_BUF_SIZE);
+    /*
+     * Fill with one more 0 than max url data size to ensure its null terminated
+     * And can be printed out for debug purposes
+     */ 
+    memset(encodedUrl, 0, MAX_URL_DATA + 1);
 
     if ((rawUrl == NULL) || (strlen(rawUrl) == 0)) {
         return urlDataLength;
