@@ -683,19 +683,27 @@ EddystoneService::EddystoneError_t EddystoneService::startEddystoneConfigAdverti
 void EddystoneService::setupEddystoneConfigScanResponse(void)
 {
     ble.gap().clearScanResponse();
+    // Add LOCAL NAME (indicating the Eddystone Version)
     ble.gap().accumulateScanResponse(
         GapAdvertisingData::COMPLETE_LOCAL_NAME,
         reinterpret_cast<const uint8_t *>(deviceName),
         strlen(deviceName)
     );
 #ifdef INCLUDE_CONFIG_URL 
+    // Add the Eddystone 16-bit Service ID
+    ble.gap().accumulateScanResponse(
+        GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, 
+        EDDYSTONE_UUID, 
+        sizeof(EDDYSTONE_UUID)
+    );
+    // Add SERVICE DATA for a PhyWeb Config URL
     uint8_t configFrame[URLFrame::ENCODED_BUF_SIZE];
     int encodedUrlLen = URLFrame::encodeURL(configFrame + CONFIG_FRAME_HDR_LEN, EDDYSTONE_CONFIG_URL);
     uint8_t advPower = advTxPowerLevels[sizeof(PowerLevels_t)-1] & 0xFF;
     uint8_t configFrameHdr[CONFIG_FRAME_HDR_LEN] = {0, 0, URLFrame::FRAME_TYPE_URL, advPower};
-    // File in the Eddystone Service UUID in the HDR
+    // ++ File in the Eddystone Service UUID in the HDR
     memcpy(configFrameHdr, EDDYSTONE_UUID, sizeof(EDDYSTONE_UUID));
-    // Copy the HDR to the config frame 
+    // ++ Copy the HDR to the config frame 
     memcpy(configFrame, configFrameHdr, CONFIG_FRAME_HDR_LEN);
     ble.gap().accumulateScanResponse(
         GapAdvertisingData::SERVICE_DATA,
@@ -703,6 +711,7 @@ void EddystoneService::setupEddystoneConfigScanResponse(void)
         CONFIG_FRAME_HDR_LEN + encodedUrlLen
     );
 #else
+    // Add TRANSMIT POWER
     ble.gap().accumulateScanResponse(
     GapAdvertisingData::TX_POWER_LEVEL,
     reinterpret_cast<uint8_t *>(&advTxPowerLevels[sizeof(PowerLevels_t)-1]),
