@@ -21,10 +21,11 @@
 /**
  * Platform Target (if not set, default is nRF51-DK or nRF51-dongle or nRF52-DK)
  * NOTE1: All targets are assumed to be 32K (in target.json) and S110 (in config.h)
- * NOTE2: Only enable one target below (or none, to default to nRF5*-DK).
+ * NOTE2: Only enable one target below.
  */
 // #define MinewTech51
 // #define MinewTech52
+#define nRF-DK
 
 // Version printed out on virtual terminal (independent of logging flag below)
 #define BUILD_VERSION_STR "EID Version 1.00 2016-10-24:20:40\r\n"
@@ -60,13 +61,17 @@
   #define CONFIG_LED p15
   #define SHUTDOWN_LED p16
   #define RESET_BUTTON p18
-#elif MinewTech52
+#endif
+
+#ifdef MinewTech52
   // *** MinewTech52 PIN defines *** 
   #define LED_OFF 0
   #define CONFIG_LED LED3
   #define SHUTDOWN_LED LED2
   #define RESET_BUTTON BUTTON1
-#else
+#endif
+
+#ifdef nRF-DK
   // *** NRF-DK or USB Dongle PIN defines ***
   #define LED_OFF 1
   #define CONFIG_LED LED3
