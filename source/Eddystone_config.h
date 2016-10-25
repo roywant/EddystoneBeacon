@@ -19,13 +19,15 @@
 #define EDDYSTONE_CONFIG_H_
 
 /**
- * Platform Target (if not set, default is nRF51-DK or nRF51-dongle)
- * NOTE: All targets are assumed to be 32K (in target.json) and S110 (in config.h)
+ * Platform Target (if not set, default is nRF51-DK or nRF51-dongle or nRF52-DK)
+ * NOTE1: All targets are assumed to be 32K (in target.json) and S110 (in config.h)
+ * NOTE2: Only enable one target below (or none, to default to nRF5*-DK).
  */
-// #define MinewTech
+// #define MinewTech51
+// #define MinewTech52
 
 // Version printed out on virtual terminal (independent of logging flag below)
-#define BUILD_VERSION_STR "EID Version 1.00 2016-10-19:15:30\r\n"
+#define BUILD_VERSION_STR "EID Version 1.00 2016-10-24:20:40\r\n"
 
 /** 
  * DEBUG OPTIONS
@@ -37,7 +39,7 @@
 // #define INCLUDE_CONFIG_URL
 // #define DONT_REMAIN_CONNECTABLE
 // #define NO_4SEC_START_DELAY
-// #define NO_LOGGING
+#define NO_LOGGING
 
 /* Default enable printf logging, unless explicitly NO_LOGGING */
 #ifdef NO_LOGGING
@@ -52,14 +54,20 @@
  * NOTE1: If you don't define RESET_BUTTON, it won't compile the button handler in main.cpp
  * This also doesn't declare or use the SHUTDOWN_LED
  */
-#ifdef MinewTech
-  // *** MinewTech PIN defines *** 
+#ifdef MinewTech51
+  // *** MinewTech51 PIN defines *** 
   #define LED_OFF 0
   #define CONFIG_LED p15
   #define SHUTDOWN_LED p16
   #define RESET_BUTTON p18
+#elif MinewTech52
+  // *** MinewTech52 PIN defines *** 
+  #define LED_OFF 0
+  #define CONFIG_LED LED3
+  #define SHUTDOWN_LED LED2
+  #define RESET_BUTTON BUTTON1
 #else
-  // *** NRF51-DK or USB Dongle PIN defines ***
+  // *** NRF-DK or USB Dongle PIN defines ***
   #define LED_OFF 1
   #define CONFIG_LED LED3
 #endif
