@@ -82,7 +82,7 @@
  *    The size of the DEVICE_NAME + Encoded Length of the CONFIG_URL
  *    must be LESS THAN OR EQUAL to 19
  */
-#define EDDYSTONE_CONFIG_URL "http://c.pw3b.org"
+#define EDDYSTONE_CONFIG_URL "http://c.pw3b.com"
  
 #define EDDYSTONE_CFG_DEFAULT_DEVICE_NAME "Edystn V3.0"
 
