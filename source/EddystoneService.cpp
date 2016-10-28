@@ -660,12 +660,14 @@ EddystoneService::EddystoneError_t EddystoneService::startEddystoneConfigAdverti
     ble.gap().accumulateAdvertisingPayload(
         GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE
     );
+#ifdef INCLUDE_CONFIG_URL
     // Add the Eddystone 16-bit Service ID
     ble.gap().accumulateAdvertisingPayload(
         GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, 
         EDDYSTONE_UUID, 
         sizeof(EDDYSTONE_UUID)
     );
+#endif
     /* UUID is in different order in the ADV frame (!) */
     uint8_t reversedServiceUUID[sizeof(UUID_ES_BEACON_SERVICE)];
     for (size_t i = 0; i < sizeof(UUID_ES_BEACON_SERVICE); i++) {
