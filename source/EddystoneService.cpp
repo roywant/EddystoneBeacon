@@ -656,40 +656,27 @@ EddystoneService::EddystoneError_t EddystoneService::startEddystoneConfigAdverti
     ble.gap().clearAdvertisingPayload();
 
     /* Accumulate the new payload */
+    // Add the Flags param
     ble.gap().accumulateAdvertisingPayload(
         GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE
     );
-
-#ifdef INCLUDE_CONFIG_URL 
     // Add the Eddystone 16-bit Service ID
     ble.gap().accumulateAdvertisingPayload(
         GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, 
         EDDYSTONE_UUID, 
         sizeof(EDDYSTONE_UUID)
     );
-    // Add SERVICE DATA for a PhyWeb Config URL
-    uint8_t configFrame[URLFrame::ENCODED_BUF_SIZE];
-    int encodedUrlLen = URLFrame::encodeURL(configFrame + CONFIG_FRAME_HDR_LEN, EDDYSTONE_CONFIG_URL);
-    uint8_t advPower = advTxPowerLevels[sizeof(PowerLevels_t)-1] & 0xFF;
-    uint8_t configFrameHdr[CONFIG_FRAME_HDR_LEN] = {0, 0, URLFrame::FRAME_TYPE_URL, advPower};
-    // ++ Fill in the Eddystone Service UUID in the HDR
-    memcpy(configFrameHdr, EDDYSTONE_UUID, sizeof(EDDYSTONE_UUID));
-    // ++ Copy the HDR to the config frame 
-    memcpy(configFrame, configFrameHdr, CONFIG_FRAME_HDR_LEN);
+    /* UUID is in different order in the ADV frame (!) */
+    uint8_t reversedServiceUUID[sizeof(UUID_ES_BEACON_SERVICE)];
+    for (size_t i = 0; i < sizeof(UUID_ES_BEACON_SERVICE); i++) {
+        reversedServiceUUID[i] = UUID_ES_BEACON_SERVICE[sizeof(UUID_ES_BEACON_SERVICE) - i - 1];
+    }
     ble.gap().accumulateAdvertisingPayload(
-        GapAdvertisingData::SERVICE_DATA,
-        configFrame,
-        CONFIG_FRAME_HDR_LEN + encodedUrlLen
+        GapAdvertisingData::COMPLETE_LIST_128BIT_SERVICE_IDS,
+        reversedServiceUUID,
+        sizeof(reversedServiceUUID)
     );
-#else
-    // Add TRANSMIT POWER
-    ble.gap().accumulateAdvertisingPayload(
-    GapAdvertisingData::TX_POWER_LEVEL,
-    reinterpret_cast<uint8_t *>(&advTxPowerLevels[sizeof(PowerLevels_t)-1]),
-    sizeof(uint8_t)
-    );
-#endif
-       
+    // Add Generic Appearance Tag
     ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::GENERIC_TAG);
     setupEddystoneConfigScanResponse();
 
@@ -710,18 +697,29 @@ void EddystoneService::setupEddystoneConfigScanResponse(void)
         reinterpret_cast<const uint8_t *>(deviceName),
         strlen(deviceName)
     );
-
-    /* UUID is in different order in the ADV frame (!) */
-    uint8_t reversedServiceUUID[sizeof(UUID_ES_BEACON_SERVICE)];
-    for (size_t i = 0; i < sizeof(UUID_ES_BEACON_SERVICE); i++) {
-        reversedServiceUUID[i] = UUID_ES_BEACON_SERVICE[sizeof(UUID_ES_BEACON_SERVICE) - i - 1];
-    }
+#ifdef INCLUDE_CONFIG_URL 
+    // Add SERVICE DATA for a PhyWeb Config URL
+    uint8_t configFrame[URLFrame::ENCODED_BUF_SIZE];
+    int encodedUrlLen = URLFrame::encodeURL(configFrame + CONFIG_FRAME_HDR_LEN, EDDYSTONE_CONFIG_URL);
+    uint8_t advPower = advTxPowerLevels[sizeof(PowerLevels_t)-1] & 0xFF;
+    uint8_t configFrameHdr[CONFIG_FRAME_HDR_LEN] = {0, 0, URLFrame::FRAME_TYPE_URL, advPower};
+    // ++ Fill in the Eddystone Service UUID in the HDR
+    memcpy(configFrameHdr, EDDYSTONE_UUID, sizeof(EDDYSTONE_UUID));
+    // ++ Copy the HDR to the config frame 
+    memcpy(configFrame, configFrameHdr, CONFIG_FRAME_HDR_LEN);
     ble.gap().accumulateScanResponse(
-        GapAdvertisingData::COMPLETE_LIST_128BIT_SERVICE_IDS,
-        reversedServiceUUID,
-        sizeof(reversedServiceUUID)
+        GapAdvertisingData::SERVICE_DATA,
+        configFrame,
+        CONFIG_FRAME_HDR_LEN + encodedUrlLen
     );
-
+#else
+    // Add TRANSMIT POWER
+    ble.gap().accumulateScanResponse(
+    GapAdvertisingData::TX_POWER_LEVEL,
+    reinterpret_cast<uint8_t *>(&advTxPowerLevels[sizeof(PowerLevels_t)-1]),
+    sizeof(uint8_t)
+    );
+#endif
 }
 
 /* WRITE AUTHORIZATION */
