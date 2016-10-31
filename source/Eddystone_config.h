@@ -28,7 +28,7 @@
 // #define nRF_DK
 
 // Version printed out on virtual terminal (independent of logging flag below)
-#define BUILD_VERSION_STR "EID Version 1.00 2016-10-24:20:40\r\n"
+#define BUILD_VERSION_STR "EID Version 1.00 2016-10-31:14:30\r\n"
 
 /** 
  * DEBUG OPTIONS
@@ -37,9 +37,9 @@
 #define GEN_BEACON_KEYS_AT_INIT
 #define HARDWARE_RANDOM_NUM_GENERATOR
 // #define EID_RANDOM_MAC
-// #define INCLUDE_CONFIG_URL
-// #define DONT_REMAIN_CONNECTABLE
-// #define NO_4SEC_START_DELAY
+#define INCLUDE_CONFIG_URL
+#define DONT_REMAIN_CONNECTABLE
+#define NO_4SEC_START_DELAY
 #define NO_LOGGING
 
 /* Default enable printf logging, unless explicitly NO_LOGGING */
@@ -90,20 +90,21 @@
 
 #define EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL 1000
 
-#define EDDYSTONE_DEFAULT_CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS 30
+#define EDDYSTONE_DEFAULT_CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS 60
 
 #define EDDYSTONE_DEFAULT_UNLOCK_KEY { \
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF \
 }
 
+// The two arrays of values below apply to nRF51-DK. Modifictions are needed for nRF52-DK
 #define EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS { -30, -16, -4, 4 }
 
 #define EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS { -42, -30, -25, -13 }
 
 #define EDDYSTONE_DEFAULT_SLOT_URLS { \
-    "http://cf.physical-web.org", \
-    "http://www.mbed.com/", \
-    "http://www.gap.com/" \
+    "http://c.pw3b.com", \
+    "https://www.mbed.com/", \
+    "https://www.github.com/" \
 }
 
 #define EDDYSTONE_DEFAULT_SLOT_UIDS { \
@@ -118,17 +119,18 @@
     { 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF } \
 }
 
-#define EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS { 4, 10, 10 }
+#define EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS { 10, 10, 4 }
 
+// The following frame/slot types are supported: URL, UID, TLM, EID. The defaults set URL x2 and EID
 #define EDDYSTONE_DEFAULT_SLOT_TYPES { \
-    EDDYSTONE_FRAME_EID, \
     EDDYSTONE_FRAME_URL, \
-    EDDYSTONE_FRAME_UID \
+    EDDYSTONE_FRAME_URL, \
+    EDDYSTONE_FRAME_EID \
 }
 
-#define EDDYSTONE_DEFAULT_SLOT_INTERVALS { 500, 0, 0 }
+#define EDDYSTONE_DEFAULT_SLOT_INTERVALS { 700, 0, 0 }
 
-#define EDDYSTONE_DEFAULT_SLOT_TX_POWERS { 4, 4, 4 }
+#define EDDYSTONE_DEFAULT_SLOT_TX_POWERS { -16, 4, 4 }
 
 /**
  * Lock constants
