@@ -438,6 +438,13 @@ public:
      *       a call to BLE::shutdown().
      */
     void stopEddystoneConfigService();
+
+    /**
+     * Tests if the beacon is locked or not
+     *
+     * @return bool
+     */
+    bool isLocked();
     
     /**
      * Print an array as a set of hex values 
@@ -479,8 +486,6 @@ public:
      * Timer that keeps track of the time since boot.
      */
     static Timer        timeSinceBootTimer;
-    
-    //static TimeParams_t pstorageTimeParams;
     
 private:
 

@@ -1218,12 +1218,6 @@ void EddystoneService::generateRandom(uint8_t ain[], int size) {
 }
 #endif
 
-/*
-// ALTERNATE Better Random number generator (but has Memory usage issues)
-// Generates a set of random values in byte array[size]
-
-*/
-
 /** Reverse Even sized Array endianess: Big to Little or Little to Big */
 void EddystoneService::swapEndianArray(uint8_t ptrIn[], uint8_t ptrOut[], int size) {
     int i;
@@ -1278,6 +1272,14 @@ int EddystoneService::getEidSlot(void) {
         nextEidSlot = (nextEidSlot-1) % MAX_ADV_SLOTS; // ensure the slot numbers wrap
     }
     return eidSlot;
+}
+
+bool EddystoneService::isLocked(void) {
+    if (lockState == LOCKED) {
+	return true;
+    } else {
+	return false;
+    }
 }
 
 /**
