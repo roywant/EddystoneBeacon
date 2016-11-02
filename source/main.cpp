@@ -125,24 +125,29 @@ DigitalOut shutdownLED(SHUTDOWN_LED, LED_OFF);
 static void shutdownLED_on(void) { shutdownLED = !LED_OFF; }
 static void shutdownLED_off(void) { shutdownLED = LED_OFF; }
 
-static int beaconIsOn = 1;                          // Button handler boolean to switch on or off
-static int buttonBusy;                              // semaphore to make prevent switch bounce problems
+static bool beaconIsOn = true;   // Button handler boolean to switch on or off
+static bool buttonBusy;          // semaphore to make prevent switch bounce problems
 
 static void freeButtonBusy(void) { buttonBusy = false; }
 
 // Callback used to handle button presses from thread mode (not IRQ)
 static void button_task(void) {
-    eventQueue.cancel(handle);   // kill any pending callback tasks
+    bool locked = eddyServicePtr->isLocked();
 
-    if (beaconIsOn) {
-        beaconIsOn = 0;
-        eddyServicePtr->stopEddystoneBeaconAdvertisements();
-        configLED_off();    // just in case it's still running...
-        shutdownLED_on();   // Flash shutdownLED to let user know we're turning off
-        eventQueue.post_in(shutdownLED_off, 1000);
-    } else {
-
-        beaconIsOn = 1;
+    // only shutdown if ON and unlocked
+    if (beaconIsOn && !locked) {
+	if (!locked) { 
+	    eventQueue.cancel(handle);   // kill any pending callback tasks
+	    beaconIsOn = false;
+	    eddyServicePtr->stopEddystoneBeaconAdvertisements();
+	    configLED_off();    // just in case it's still running...
+	    shutdownLED_on();   // Flash shutdownLED to let user know we're turning off
+	    eventQueue.post_in(shutdownLED_off, 1000);
+	}
+    // only go into configMode if OFF or locked and not in configMode
+    } else if (!beaconIsOn || (locked && BlinkyHandle == NULL)) {
+	eventQueue.cancel(handle); // kill any pending callback tasks
+        beaconIsOn = true;
         eddyServicePtr->startEddystoneConfigAdvertisements();
         configLED_on();
         handle = eventQueue.post_in(
@@ -244,7 +249,7 @@ void app_start(int, char *[])
 #endif
     
 #ifdef RESET_BUTTON
-    beaconIsOn = 1;             // Booting up, initialize for button handler
+    beaconIsOn = true;             // Booting up, initialize for button handler
     buttonBusy = false;         // software debouncing of the reset button
     button.rise(&reset_rise);   // setup reset button
 #endif

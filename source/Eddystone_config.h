@@ -18,21 +18,61 @@
 #ifndef EDDYSTONE_CONFIG_H_
 #define EDDYSTONE_CONFIG_H_
 
+// Version printed out on virtual terminal (independent of logging flag below)
+#define BUILD_VERSION_STR "EID Version 1.00 2016-11-02:50:00\r\n"
+
 /**
  * Platform Target (if not set, default is nRF51-DK or nRF51-dongle or nRF52-DK)
  * NOTE1: All targets are assumed to be 32K (in target.json) and S110 (in config.h)
  * NOTE2: Only enable one target below (default is nRF_DK).
  */
 // #define MinewTech51
-// #define MinewTech52
+#define MinewTech52
 // #define nRF_DK
 
-// Version printed out on virtual terminal (independent of logging flag below)
-#define BUILD_VERSION_STR "EID Version 1.00 2016-10-31:14:30\r\n"
+/**
+ * DECLARE YOUR TARGET'S PARAMETERS
+ * If you are adding a new target, append to end of elif chain
+ * NOTE: If you don't have a button and define RESET_BUTTON, it won't compile the button handler
+ * in main.cpp. This also doesn't declare or use the SHUTDOWN_LED.
+ */
+#ifdef MinewTech51
+  #define LED_OFF 0
+  #define CONFIG_LED p15
+  #define SHUTDOWN_LED p16
+  #define RESET_BUTTON p18
+  #define EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS { -30, -16, -4, 4 }
+  #define EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS { -42, -30, -25, -13 }  
+
+#elif defined MinewTech52
+  #define LED_OFF 0
+  #define CONFIG_LED LED3
+  #define SHUTDOWN_LED LED2
+  #define RESET_BUTTON BUTTON1
+  #define EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS { -40, -20, -8, 4 }
+  #define EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS { -50, -30, -18, -6 }
+
+#else
+  // *** nRF_DK or USB Dongle PIN defines ***
+  #define LED_OFF 1
+  #define CONFIG_LED LED3
+  #define SHUTDOWN_LED LED2
+  #define RESET_BUTTON BUTTON1
+  #define EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS { -30, -16, -4, 4 }
+  #define EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS { -42, -30, -25, -13 } 
+#endif
 
 /** 
  * DEBUG OPTIONS
- * For production: all defines below should be UNCOMMENTED
+ * For production: all defines below should be UNCOMMENTED:
+ * Key
+ *   GEN_BEACON_KEYS_AT_INIT:  Debugging flag to help test entropy source
+ *   HARDWARE_RANDOM_NUM_GENERATOR: include if the target supports a hardware RNG
+ *   EID_RANDOM_MAC: include if you want to randomize the mac address for each eid rotation
+ *   INCLUDE_CONFIG_URL: Includes configuration url when in Configuration Mode
+ *   DONT_REMAIN_CONNECTABLE: Debugging flag; remain connectable during beaconing for easy testing
+ *   NO_4SEC_START_DELAY: Debugging flag to pause 4s before starting; allow time to connect virtual terminal
+ *   NO_LOGGING: Debugging flag; controls logging to virtual terminal
  */ 
 #define GEN_BEACON_KEYS_AT_INIT
 #define HARDWARE_RANDOM_NUM_GENERATOR
@@ -52,54 +92,20 @@
 #define LOG(x) do { if (LOG_PRINT) printf x; } while (0)
 
 /**
- * NOTE1: If you don't define RESET_BUTTON, it won't compile the button handler in main.cpp
- * This also doesn't declare or use the SHUTDOWN_LED
- */
-#ifdef MinewTech51
-  // *** MinewTech51 PIN defines *** 
-  #define LED_OFF 0
-  #define CONFIG_LED p15
-  #define SHUTDOWN_LED p16
-  #define RESET_BUTTON p18
-#elif defined MinewTech52
-  // *** MinewTech52 PIN defines *** 
-  #define LED_OFF 0
-  #define CONFIG_LED LED3
-  #define SHUTDOWN_LED LED2
-  #define RESET_BUTTON BUTTON1
-#else
-  // *** nRF_DK or USB Dongle PIN defines ***
-  #define LED_OFF 1
-  #define CONFIG_LED LED3
-#endif
-
-/*
- * BEACON BEHAVIOR DEFINED BELOW
- */
-
-/**
+ * GENERIC BEACON BEHAVIORS DEFINED
  * Note: If the CONFIG_URL is enabled (DEFINE above)
  *    The size of the DEVICE_NAME + Encoded Length of the CONFIG_URL
  *    must be LESS THAN OR EQUAL to 23
  */
 #define EDDYSTONE_CONFIG_URL "http://c.pw3b.com"
- 
 #define EDDYSTONE_CFG_DEFAULT_DEVICE_NAME "Eddystone v3.0"
-
 #define EDDYSTONE_DEFAULT_MAX_ADV_SLOTS 3
-
 #define EDDYSTONE_DEFAULT_CONFIG_ADV_INTERVAL 1000
-
 #define EDDYSTONE_DEFAULT_CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS 60
 
 #define EDDYSTONE_DEFAULT_UNLOCK_KEY { \
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF \
 }
-
-// The two arrays of values below apply to nRF51-DK. Modifictions are needed for nRF52-DK
-#define EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS { -30, -16, -4, 4 }
-
-#define EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS { -42, -30, -25, -13 }
 
 #define EDDYSTONE_DEFAULT_SLOT_URLS { \
     "http://c.pw3b.com", \
@@ -130,7 +136,7 @@
 
 #define EDDYSTONE_DEFAULT_SLOT_INTERVALS { 700, 0, 0 }
 
-#define EDDYSTONE_DEFAULT_SLOT_TX_POWERS { -16, 4, 4 }
+#define EDDYSTONE_DEFAULT_SLOT_TX_POWERS { -8, 4, -8 }
 
 /**
  * Lock constants
@@ -165,16 +171,10 @@ const char DEFAULT_DEVICE_NAME[] = EDDYSTONE_CFG_DEFAULT_DEVICE_NAME;
  * ES GATT Capability Constants (6 values)
  */
 const uint8_t CAP_HDR_LEN = 6;  // The six constants below
-
 const uint8_t ES_GATT_VERSION = 0;
-
 const uint8_t MAX_EIDS = MAX_ADV_SLOTS;
-
-
 const uint8_t CAPABILITIES = 0x03; // Per slot variable interval and variable Power
-
 const uint8_t SUPPORTED_FRAMES_H = 0x00;
-
 const uint8_t SUPPORTED_FRAMES_L = 0x0F;
 
 /**
