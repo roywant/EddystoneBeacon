@@ -19,7 +19,7 @@
 #define EDDYSTONE_CONFIG_H_
 
 // Version printed out on virtual terminal (independent of logging flag below)
-#define BUILD_VERSION_STR "EID Version 1.00 2016-11-02:50:00\r\n"
+#define BUILD_VERSION_STR "EID Version 1.00 2016-11-03:14:50\r\n"
 
 /**
  * Platform Target (if not set, default is nRF51-DK or nRF51-dongle or nRF52-DK)
@@ -33,8 +33,17 @@
 /**
  * DECLARE YOUR TARGET'S PARAMETERS
  * If you are adding a new target, append to end of elif chain
- * NOTE: If you don't have a button and define RESET_BUTTON, it won't compile the button handler
- * in main.cpp. This also doesn't declare or use the SHUTDOWN_LED.
+ * 
+ * LED_OFF: value for an LED off state: 1 or 0
+ * CONFIG_LED: which LED to blink when in Configuration Mode
+ *     On power up will go into configuration mode and eventually time out
+ * SHUTDOWN_LED: which LED to blink when shutting down (only used if RESET_BUTTON is defined)
+ * RESET_BUTTON: Which button to use. If defined, adds code to handle button presses
+ *     Button press will toggle between configuration mode and off
+ *     Configuration mode will eventually timeout and broadcast default values
+ *     This will shutdown after initial power up! Assumes shipping with a battery in an off state
+ * EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS: Which power levels to offer
+ * EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS: What to advertise these levels (as antennas always loose some power) 
  */
 #ifdef MinewTech51
   #define LED_OFF 0
@@ -56,8 +65,10 @@
   // *** nRF_DK or USB Dongle PIN defines ***
   #define LED_OFF 1
   #define CONFIG_LED LED3
-  #define SHUTDOWN_LED LED2
-  #define RESET_BUTTON BUTTON1
+  // Uncomment the defines below if you want the DK board to behave like a
+  // Beacon target with shutdown on power up, and a mode button
+  // #define SHUTDOWN_LED LED2
+  // #define RESET_BUTTON BUTTON1
   #define EDDYSTONE_DEFAULT_RADIO_TX_POWER_LEVELS { -30, -16, -4, 4 }
   #define EDDYSTONE_DEFAULT_ADV_TX_POWER_LEVELS { -42, -30, -25, -13 } 
 #endif

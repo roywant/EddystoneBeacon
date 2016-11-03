@@ -136,14 +136,12 @@ static void button_task(void) {
 
     // only shutdown if ON and unlocked
     if (beaconIsOn && !locked) {
-	if (!locked) { 
-	    eventQueue.cancel(handle);   // kill any pending callback tasks
-	    beaconIsOn = false;
-	    eddyServicePtr->stopEddystoneBeaconAdvertisements();
-	    configLED_off();    // just in case it's still running...
-	    shutdownLED_on();   // Flash shutdownLED to let user know we're turning off
-	    eventQueue.post_in(shutdownLED_off, 1000);
-	}
+	eventQueue.cancel(handle);   // kill any pending callback tasks
+	beaconIsOn = false;
+	eddyServicePtr->stopEddystoneBeaconAdvertisements();
+	configLED_off();    // just in case it's still running...
+	shutdownLED_on();   // Flash shutdownLED to let user know we're turning off
+	eventQueue.post_in(shutdownLED_off, 1000);
     // only go into configMode if OFF or locked and not in configMode
     } else if (!beaconIsOn || (locked && BlinkyHandle == NULL)) {
 	eventQueue.cancel(handle); // kill any pending callback tasks
