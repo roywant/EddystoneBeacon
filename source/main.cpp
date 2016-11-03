@@ -26,6 +26,10 @@
 #include "PersistentStorageHelper/ConfigParamsPersistence.h"
 #include "stdio.h"
 
+#if (defined(NRF51) || defined(NRF52))
+    #include "nrf_soc.h"
+#endif
+
 // Instantiation of the main event loop for this program
 
 #ifdef YOTTA_CFG_MBED_OS  // use minar on mbed OS
@@ -224,6 +228,10 @@ static void bleInitComplete(BLE::InitializationCompleteCallbackContext* initCont
         CONFIG_ADVERTISEMENT_TIMEOUT_SECONDS * 1000 /* ms */
     );
 
+#if (defined(NRF51) || defined(NRF52))
+	sd_power_dcdc_mode_set(NRF_POWER_DCDC_ENABLE);	// set the DCDC mode for the Nordic chip to lower power consumption
+#endif
+	
    // now shut everything off (used for final beacon that ships w/ battery)
 #ifdef RESET_BUTTON
    eventQueue.post_in(button_task, 2000 /* ms */);
