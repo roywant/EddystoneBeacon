@@ -854,7 +854,7 @@ private:
      *
      * @return time
      */
-    uint64_t getTimeSinceLastBootMs(void);
+    static uint64_t getTimeSinceLastBootMs(void);
     
     /**
      * Saves only the Time Params in pStorage (a subset of all the Eddsytone Params)
