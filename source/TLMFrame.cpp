@@ -66,8 +66,6 @@ void TLMFrame::setData(uint8_t *rawFrame)  // add eidTime - a 4 byte quantity
 }
 
 void TLMFrame::encryptData(uint8_t* rawFrame, uint8_t* eidIdentityKey, uint8_t rotationPeriodExp, uint32_t beaconTimeSecs) {
-    // uint8_t newinput[ETLM_DATA_LEN];        // DEBUG ONLY
-        
     // Initialize AES data
     mbedtls_aes_context ctx;
     mbedtls_aes_init(&ctx); 
@@ -84,12 +82,18 @@ void TLMFrame::encryptData(uint8_t* rawFrame, uint8_t* eidIdentityKey, uint8_t r
     memset(output, 0, ETLM_DATA_LEN);
     uint8_t emptyHeader[1]; // Empty header
     LOG(("EIDIdentityKey=\r\n")); EddystoneService::logPrintHex(eidIdentityKey, 16);
-    LOG(("TLM input=\r\n")); EddystoneService::logPrintHex(input, 12);
+    LOG(("ETLM Encoder INPUT=\r\n")); EddystoneService::logPrintHex(input, 12);
     LOG(("ETLM SALT=\r\n")); EddystoneService::logPrintHex(nonce+4, 2);
     LOG(("ETLM Nonce=\r\n")); EddystoneService::logPrintHex(nonce, 6);
     // Encrypt the TLM to ETLM
     eddy_aes_authcrypt_eax(&ctx, MBEDTLS_AES_ENCRYPT, nonce, sizeof(nonce), emptyHeader, 0, TLM_DATA_LEN, input, output, output + MIC_OFFSET, MIC_LEN);
-    // memcpy(newinput, output, ETLM_DATA_LEN); // DEBUG ONLY
+
+#ifndef NO_EAX_TEST
+    // Part of test code to confirm x == EAX_DECRYPT( EAX_ENCRYPT(x) )
+    uint8_t newinput[ETLM_DATA_LEN];
+    memcpy(newinput, output, ETLM_DATA_LEN);
+#endif
+
     // Only use first 2 bytes of Nonce
     output[SALT_OFFSET] = nonce[4]; // Nonce MSB
     output[SALT_OFFSET+1] = nonce[5]; // Nonce LSB
@@ -97,13 +101,13 @@ void TLMFrame::encryptData(uint8_t* rawFrame, uint8_t* eidIdentityKey, uint8_t r
     // copy the encrypted payload to the output
     memcpy((rawFrame + DATA_OFFSET), output, ETLM_DATA_LEN);
         
-    /* 
-    // DEBUG ONLY TO CHECK DECRYPT==ENCRYPT
+#ifndef NO_EAX_TEST
+    // Perform test to confirm x == EAX_DECRYPT( EAX_ENCRYPT(x) )
     uint8_t buf[ETLM_DATA_LEN];
     memset(buf, 0, ETLM_DATA_LEN);
-    int ret = eddy_aes_authcrypt_eax(&ctx, MBEDTLS_AES_DECRYPT, nonce, sizeof(nonce), emptyHeader, 0, TLM_DATA_LEN, newinput, buf, buf + MIC_OFFSET, MIC_LEN);
-    LOG(("ETLM Decoder ret=%d buf=\r\n", ret)); EddystoneService::logPrintHex(buf, 16);
-    */
+    int ret = eddy_aes_authcrypt_eax(&ctx, MBEDTLS_AES_DECRYPT, nonce, sizeof(nonce), emptyHeader, 0, TLM_DATA_LEN, newinput, buf, newinput + MIC_OFFSET, MIC_LEN);
+    LOG(("ETLM Decoder OUTPUT ret=%d buf=\r\n", ret)); EddystoneService::logPrintHex(buf, 12);
+#endif
         
     // fix the frame length to the encrypted length
     rawFrame[FRAME_LEN_OFFSET] = FRAME_SIZE_ETLM + EDDYSTONE_UUID_SIZE; 

@@ -83,6 +83,7 @@
  *   INCLUDE_CONFIG_URL: Includes configuration url when in Configuration Mode
  *   DONT_REMAIN_CONNECTABLE: Debugging flag; remain connectable during beaconing for easy testing
  *   NO_4SEC_START_DELAY: Debugging flag to pause 4s before starting; allow time to connect virtual terminal
+ *   NO_EAX_TEST: Debugging flag: when not define, test will check x = EAX_DECRYPT(EAX_ENCRYPT(x)), output in LOG
  *   NO_LOGGING: Debugging flag; controls logging to virtual terminal
  */ 
 #define GEN_BEACON_KEYS_AT_INIT
@@ -91,6 +92,7 @@
 #define INCLUDE_CONFIG_URL
 #define DONT_REMAIN_CONNECTABLE
 #define NO_4SEC_START_DELAY
+#define NO_EAX_TEST
 #define NO_LOGGING
 
 /* Default enable printf logging, unless explicitly NO_LOGGING */
