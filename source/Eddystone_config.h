@@ -19,7 +19,7 @@
 #define EDDYSTONE_CONFIG_H_
 
 // Version printed out on virtual terminal (independent of logging flag below)
-#define BUILD_VERSION_STR "EID Version 1.00 2016-11-03:14:50\r\n"
+#define BUILD_VERSION_STR "EID Version 1.00 2016-11-19:15:00\r\n"
 
 /**
  * Platform Target (if not set, default is nRF51-DK or nRF51-dongle or nRF52-DK)
