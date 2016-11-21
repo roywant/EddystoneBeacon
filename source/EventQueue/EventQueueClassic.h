@@ -26,13 +26,8 @@
 #include "MakeThunk.h"
 #include "EventQueue.h"
 
-#ifdef TARGET_NORDIC
-#include "util/NordicCriticalSectionLock.h"
-typedef ::util::NordicCriticalSectionLock CriticalSection;
-#else
 #include <util/CriticalSectionLock.h>
 typedef ::mbed::util::CriticalSectionLock CriticalSection;
-#endif
 
 namespace eq {
 
