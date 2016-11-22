@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, ARM Limited, All Rights Reserved
+ * Copyright (c) 2016, Google, All Rights Reserved
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -88,7 +88,7 @@
  */ 
 #define GEN_BEACON_KEYS_AT_INIT
 #define HARDWARE_RANDOM_NUM_GENERATOR
-// #define EID_RANDOM_MAC
+#define EID_RANDOM_MAC
 #define INCLUDE_CONFIG_URL
 #define DONT_REMAIN_CONNECTABLE
 #define NO_4SEC_START_DELAY
@@ -138,7 +138,7 @@
     { 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF } \
 }
 
-#define EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS { 10, 10, 4 }
+#define EDDYSTONE_DEFAULT_SLOT_EID_ROTATION_PERIOD_EXPS { 10, 10, 10 }
 
 // The following frame/slot types are supported: URL, UID, TLM, EID. The defaults set URL x2 and EID
 #define EDDYSTONE_DEFAULT_SLOT_TYPES { \
@@ -149,7 +149,7 @@
 
 #define EDDYSTONE_DEFAULT_SLOT_INTERVALS { 700, 0, 0 }
 
-#define EDDYSTONE_DEFAULT_SLOT_TX_POWERS { -8, 4, -8 }
+#define EDDYSTONE_DEFAULT_SLOT_TX_POWERS { -8, -8, -8 }
 
 /**
  * Lock constants
