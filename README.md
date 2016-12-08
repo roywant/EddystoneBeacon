@@ -12,10 +12,10 @@ The first goal of this repo is to encourage a wide distribution of Eddystone bea
 The second goal is to encourage other devices beyond just beacons. These would be interative devices that use new GATT services characteristics. We hope to see forks for products such as vending machines or remote control toys. With Bluetooth Javascript support in modern web browsers, it's important we have an easy way for device makers to not only broadcast a URL but to connect and control it directly.
 
 ### Porting the code
-1. Edit Eddystone_config.h, most platforms should work with just changes to this file.
+1. Edit Eddystone_config.h, most boards should work with changes only to this file.
 2. There are #defines for each target board, just add your own #define to the list
 
-**Note:** We've only compiled this for Nordic chipsets as of Jan 2017. If you are using anything else there will almost certainly be other changes to make. We are encouraging new chip vendors to make these changes so you don't have to.
+**Note:** We've only compiled this for the Nordic chipsets as of Jan 2017. If you are using anything else, there will almost certainly be other changes to make throughout the code (such as persistent storage). We are encouraging new chip vendors to make these changes so you don't have to.
 
 ### Best Practices
 * Be sure to test the advertised transmit power levels as each board's antenna is different.
