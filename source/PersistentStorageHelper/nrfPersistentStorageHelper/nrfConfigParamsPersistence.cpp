@@ -77,7 +77,7 @@ bool loadEddystoneServiceConfigParams(EddystoneService::EddystoneParams_t *param
 {
     static bool fstorageInited = false;
     if (!fstorageInited) {
-        fs_ret_t ret = fs_init();
+        fs_init();
         fstorageInited = true;
     }
 
@@ -99,12 +99,8 @@ void saveEddystoneServiceConfigParams(const EddystoneService::EddystoneParams_t 
 {
     memcpy(&persistentParams.params, paramsP, sizeof(EddystoneService::EddystoneParams_t));
     if (persistentParams.persistenceSignature != PersistentParams_t::MAGIC) {
-        printf("store %08lx\n", persistentParams.persistenceSignature);
-
         persistentParams.persistenceSignature = PersistentParams_t::MAGIC;
     } else {
-        printf("update %08lx\n", persistentParams.persistenceSignature);
-
         fs_erase(&fs_config, fs_config.p_start_addr, sizeof(PersistentParams_t) / 4);
     }
 
@@ -126,17 +122,10 @@ void saveEddystoneTimeParams(const TimeParams_t *timeP)
     if (persistentParams.persistenceSignature != PersistentParams_t::MAGIC) {
         persistentParams.persistenceSignature = PersistentParams_t::MAGIC;
     } else {
-        printf("erasing from %p... %d bytes\n", fs_config.p_start_addr + offsetof(PersistentParams_t, params),
-            sizeof(TimeParams_t) / 4);
-
         fs_erase(&fs_config,
                  fs_config.p_start_addr + offsetof(PersistentParams_t, params) /* offset */,
                  sizeof(TimeParams_t) / 4);
     }
-
-    printf("storing at %p, bytes %d\n",
-        fs_config.p_start_addr + offsetof(PersistentParams_t, params),
-        sizeof(TimeParams_t) / 4);
 
     fs_store(&fs_config,
              fs_config.p_start_addr + offsetof(PersistentParams_t, params) /* offset */,
