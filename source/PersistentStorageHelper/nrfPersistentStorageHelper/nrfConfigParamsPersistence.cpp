@@ -90,6 +90,7 @@ bool loadEddystoneServiceConfigParams(EddystoneService::EddystoneParams_t *param
     }
 
     memcpy(paramsP, &persistentParams.params, sizeof(EddystoneService::EddystoneParams_t));
+
     return true;
 }
 
@@ -98,10 +99,11 @@ bool loadEddystoneServiceConfigParams(EddystoneService::EddystoneParams_t *param
 void saveEddystoneServiceConfigParams(const EddystoneService::EddystoneParams_t *paramsP)
 {
     memcpy(&persistentParams.params, paramsP, sizeof(EddystoneService::EddystoneParams_t));
+
     if (persistentParams.persistenceSignature != PersistentParams_t::MAGIC) {
         persistentParams.persistenceSignature = PersistentParams_t::MAGIC;
     } else {
-        fs_erase(&fs_config, fs_config.p_start_addr, sizeof(PersistentParams_t) / 4);
+        fs_erase(&fs_config, fs_config.p_start_addr, 1);
     }
 
     fs_store(&fs_config,
@@ -115,22 +117,12 @@ void saveEddystoneServiceConfigParams(const EddystoneService::EddystoneParams_t 
  * fstorage module provided by the Nordic SDK. */
 void saveEddystoneTimeParams(const TimeParams_t *timeP)
 {
+    // So fstorage API needs to erase full pages unlike pstorage, disable this for now...
+
     // Copy the time params object to the main datastructure
     memcpy(&persistentParams.params.timeParams, timeP, sizeof(TimeParams_t));
 
-    // Test if this is the first fstorage update, or an update
-    if (persistentParams.persistenceSignature != PersistentParams_t::MAGIC) {
-        persistentParams.persistenceSignature = PersistentParams_t::MAGIC;
-    } else {
-        fs_erase(&fs_config,
-                 fs_config.p_start_addr + offsetof(PersistentParams_t, params) /* offset */,
-                 sizeof(TimeParams_t) / 4);
-    }
-
-    fs_store(&fs_config,
-             fs_config.p_start_addr + offsetof(PersistentParams_t, params) /* offset */,
-             reinterpret_cast<uint32_t *>(&persistentParams.params),
-             sizeof(TimeParams_t) / 4);
+    saveEddystoneServiceConfigParams(&persistentParams.params);
 }
 
 #endif /* #ifdef TARGET_NRF51822 */
